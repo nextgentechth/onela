@@ -234,10 +234,17 @@ var wheelAngle = 0;
 var BASE = -Math.PI/2;
 var PALETTE=['#f5c842','#ff6b35','#00d4aa','#a78bfa','#fb7185','#38bdf8','#fbbf24','#34d399','#f472b6','#60a5fa','#facc15','#4ade80','#f87171','#818cf8','#2dd4bf','#fb923c','#c084fc','#86efac','#fca5a5','#93c5fd'];
 
-var hands=null, camera=null, cameraActive=false, resolved=false;
+//var hands=null, camera=null, cameraActive=false, resolved=false;
 // เปลี่ยนตัวแปรควบคุมความเร็ว
-var spinVelocity=0, isFistNow=false, fistHoldStart=null; 
-var FIST_HOLD_MS=650, handAngle=0;
+//var spinVelocity=0, isFistNow=false, fistHoldStart=null; 
+//var FIST_HOLD_MS=650, handAngle=0;
+var hands=null, camera=null, cameraActive=false, resolved=false;
+// ตัวแปรควบคุมการหมุนแบบใหม่
+var spinVelocity=0, handAngle=0;
+var isStopping = false; // สถานะกำลังหน่วงหยุด
+var stopStartTime = null; // เวลาที่เริ่มกำมือ
+var STOP_DURATION = 4000; // เวลาหน่วงหยุด (มิลลิวินาที)
+var startAngleForStop = 0; // มุมเริ่มต้นตอนเริ่มหน่วงหยุด
 
 window.onload = function(){
   if(!API_URL){
@@ -512,28 +519,152 @@ function onHandResults(results){
   var lm = (results.multiHandLandmarks && results.multiHandLandmarks[0]) || null;
   if(!lm){
     setStatus('none','กำลังค้นหามือ…');
-    fistHoldStart=null; setHold(0);
-    spinFriction(); // เอามือออก วงล้อค่อยๆ หน่วงหยุด
+    if(!isStopping) spinFriction(); // เอามือออกให้หน่วงหยุดแบบปกติ
     return;
   }
 
   drawSkeleton(ctx, lm, skelCv.width, skelCv.height);
-  isFistNow = isFist(lm);
+  var isFistNow = isFist(lm);
   var isOpenNow = isOpenHand(lm);
 
   if(isFistNow){
-    handleFist(); // กำมือ = เริ่มนับถอยหลังล็อกผล
-  } else {
-    fistHoldStart=null; setHold(0);
-    if(isOpenNow){
-      handleOpenHand(); // กางมือ = หมุน
-    } else {
-      setStatus('none','🖐️ กางมือเพื่อหมุน หรือ ✊ กำมือเพื่อหยุด');
-      spinFriction(); // ท่าทางอื่นๆ ให้หน่วงหยุด
+    // กำมือ: ถ้ายังไม่เริ่มหยุด ให้เริ่มนับถอยหลัง
+    if(!isStopping){
+      isStopping = true;
+      stopStartTime = Date.now();
+      startAngleForStop = handAngle;
+      setStatus('fist','✊ ปล่อยให้วงล้อหยุดเองใน 4 วินาที…');
     }
+  } else {
+    // กางมือ: หมุนเร็ว
+    if(isOpenNow){
+      isStopping = false; // ยกเลิกการหยุดถ้ากางมือใหม่
+      // ปรับให้กางมือแล้วหมุนเร็วขึ้นมาก
+function handleOpenHand(){
+  // เพิ่มความเร็วการหมุนอย่างรวดเร็วและนุ่มนวล
+  spinVelocity = spinVelocity * 0.85 + 0.35 * 0.15; // เพิ่ม Factor ความเร็ว
+  if(spinVelocity < 0.1) spinVelocity = 0.1;
+  if(spinVelocity > 0.8) spinVelocity = 0.8; // จำกัดความเร็วสูงสุด
+
+  handAngle += spinVelocity;
+  drawWheel(handAngle);
+  wheelAngle = handAngle;
+  setStatus('wave','🖐️ หมุนเร็ว! กำมือค้างไว้เพื่อปล่อยให้หยุด');
+}
+
+// แรงเสียดทานปกติ (เมื่อเอามือออก) ไม่ใช่การหยุด 4 วินาที
+function spinFriction(){
+  if(Math.abs(spinVelocity) > 0.001){
+    spinVelocity *= 0.96; 
+    handAngle += spinVelocity;
+    drawWheel(handAngle);
+    wheelAngle = handAngle;
   }
 }
 
+// ระบบหน่วงหยุด 4 วินาทีอย่างเป็นธรรมชาติและแม่นยำ
+function updateWheelLoop() {
+  if (isStopping && stopStartTime) {
+    var elapsed = Date.now() - stopStartTime;
+    var t = elapsed / STOP_DURATION; // 0.0 ถึง 1.0
+
+    if (t < 1) {
+      // ใช้ Ease-Out Cubic: ช้าลงอย่างรวดเร็วในตอนท้ายเพื่อให้ดูเป็นธรรมชาติ
+      // formula: 1 - (1 - t)^3
+      var easeOutCubic = 1 - Math.pow(1 - t, 3);
+      
+      // คำนวณมุม: หมุนเพิ่มจากมุมเริ่มต้น โดยรวมระยะทางที่ได้จากความเร็วต้น
+      // เรากำหนดให้ระยะทางแปรผันตาม Ease-Out เพื่อให้จุดหยุดสมดุล
+      var totalRotation = spinVelocity * 50; // กำหนดระยะทางที่หมุนเพิ่มทั้งหมด
+      handAngle = startAngleForStop + (totalRotation * easeOutCubic);
+      
+      drawWheel(handAngle);
+      wheelAngle = handAngle;
+      
+      requestAnimationFrame(updateWheelLoop); // รัน loop ต่อจนครบ 4 วินาที
+    } else {
+      // ครบ 4 วินาที: หยุดนิ่งและล็อกผล
+      isStopping = false;
+      stopStartTime = null;
+      confirmDrawBasedOnAngle(); // เรียกฟังก์ชันใหม่เพื่อล็อกผลจากมุมที่หยุดจริง
+    }
+  } else {
+    // ถ้าไม่ไช่สถานะหยุด ให้รัน Loop ปกติเผื่อมีการหมุน
+    requestAnimationFrame(updateWheelLoop);
+  }
+}
+
+// เริ่มรัน Loop หลักทันที
+requestAnimationFrame(updateWheelLoop); 
+    } else {
+      // ท่าทางอื่นๆ (ไม่ใช่กำและไม่กาง) ให้หน่วงหยุดปกติ
+      if(!isStopping){
+        setStatus('none','🖐️ กางมือเพื่อหมุน หรือ ✊ กำมือเพื่อปล่อยหยุด');
+        spinFriction();
+      }
+    }
+  }
+}
+// ฟังก์ชันล็อกผลโดยอิงจากมุมที่หยุดจริง ดูความสมดุล
+function confirmDrawBasedOnAngle(){
+  if(resolved) return; // ป้องกันการล็อกผลซ้ำ
+  resolved = true;
+  setStatus('fist','🎯 หยุดแล้ว! กำลังบันทึกผล…');
+
+  // ย้ายตำแหน่งพลุให้ตรงกับวงล้อ
+  var cv = document.getElementById('wheelCanvas');
+  var W=cv.width, H=cv.height;
+  var r = Math.min(W, H) * 0.22; if(r > 110) r = 110; if(r < 65) r = 65;
+  var cx = W - r - 25;
+  var cy = r + Math.max(80, (window.safeAreaInsetTop || 0) + 70); 
+  var burstEl = document.getElementById('burst');
+  if(burstEl) { burstEl.style.left = cx + 'px'; burstEl.style.top = cy + 'px'; }
+  fireBurst();
+
+  // --- คำนวณผลจากมุมที่หยุดจริง ---
+  var av = getAvailable();
+  if(av.length === 0) return;
+
+  var n = av.length;
+  var sa = 2 * Math.PI / n; // มุมต่อ 1 เซกเมนต์
+  
+  // มุมรวมที่หยุดจริง (Normalized ให้อยู่ในช่วง 0 - 2PI)
+  var finalAngle = wheelAngle % (2 * Math.PI);
+  if(finalAngle < 0) finalAngle += (2 * Math.PI); // ป้องกันค่าลบ
+
+  // คำนวณ Index ของเซกเมนต์ที่อยู่บนสุด (ตำแหน่ง 12 นาฬิกา)
+  // สูตร: ((NormalizedAngle - BaseAngle) / SegmentAngle) แล้วปัดเศษ
+  // เราใช้ % n เพื่อให้อยู่ในขอบเขต Array และ n-1-... เพื่อให้ลำดับถูกต้องกับ pointer บนสุด
+  var winnerIndex = Math.floor(((finalAngle - BASE + sa/2) % (2*Math.PI)) / sa);
+  // แก้ไข Index ให้ถูกต้องโดยอิงจากล้อหมุนทวนเข็ม และ Pointer อยู่บนสุด
+  winnerIndex = (n - winnerIndex) % n;
+  
+  if(winnerIndex < 0) winnerIndex = 0; // ป้องกัน Error
+  
+  var winItem = av[winnerIndex];
+
+  // อัปเดต UI และส่งผลกลับ
+  var cv = document.getElementById('wheelCanvas');
+  var ctx = cv.getContext('2d');
+  ctx.fillStyle='white'; ctx.textAlign='center'; ctx.font='bold 24px Kanit';
+  ctx.fillText('ยินดีด้วย!', cv.width/2, cv.height/2 - 20);
+  ctx.fillText('เลขที่ออก: ' + winItem.order, cv.width/2, cv.height/2 + 20);
+
+  // ส่งผลกลับ Google Apps Script
+  if(window.opener && !window.opener.closed){
+    window.opener.postMessage({
+      type: 'DRAW_RESULT',
+      result: { order: winItem.order, lot: winItem.lot, member: winItem.member }
+    }, '*');
+  }
+
+  // ปิดหน้าหลังแสดงผล 5 วินาที
+  setTimeout(function(){
+    setStatus('none','ปิดหน้าต่าง…');
+    if(camera) camera.stop();
+    window.close();
+  }, 5000);
+}
 // ตรวจจับท่ากางมือ (เช็คว่าปลายนิ้วยืดออกห่างจากโคนนิ้ว)
 function isOpenHand(lm){
   var wrist=lm[0];
