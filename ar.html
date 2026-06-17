@@ -26,16 +26,8 @@ body{font-family:'Sarabun',sans-serif;color:#fff;}
 .ar-skeleton{z-index:2;pointer-events:none;}
 .ar-wheel-canvas{z-index:3;pointer-events:none;transform:none;}
 
-.ar-pointer{
-  display: none;
-}
-.ar-pointer::after{
-  content:'';position:absolute;left:-14px;top:-118px;
-  width:0;height:0;
-  border-left:14px solid transparent;border-right:14px solid transparent;
-  border-top:32px solid var(--gold);
-  filter:drop-shadow(0 2px 10px rgba(245,200,66,.9));
-}
+/* ซ่อน Pointer เดิมแบบ CSS เพราะเราจะวาดใน Canvas แทน */
+.ar-pointer{ display: none; }
 
 .topbar{
   position:absolute;top:0;left:0;right:0;z-index:10;
@@ -77,9 +69,9 @@ body{font-family:'Sarabun',sans-serif;color:#fff;}
 }
 .hint{font-size:.8rem;color:#ddd;line-height:1.5;margin-bottom:.6rem;}
 .hint b{color:var(--gold);}
-.hold-wrap{height:6px;background:rgba(255,255,255,.15);border-radius:10px;overflow:hidden;margin-bottom:.4rem;}
+.hold-wrap{height:6px;background:rgba(255,255,255,.15);border-radius:10px;overflow:hidden;margin-bottom:.4rem; display:none;}
 .hold-fill{height:100%;background:linear-gradient(90deg,var(--orange),var(--red));width:0%;border-radius:10px;transition:width .12s linear;}
-.hold-label{font-size:.68rem;color:#9090bb;}
+.hold-label{font-size:.68rem;color:#9090bb; display:none;}
 
 .loading,.error-box{
   position:absolute;inset:0;z-index:20;
@@ -173,7 +165,7 @@ body{font-family:'Sarabun',sans-serif;color:#fff;}
 
   <div class="bottom">
     <div class="hint" id="hint">
-      <b>กางมือ</b> เพื่อหมุนวงล้อ แล้ว <b>กำมือ</b> เพื่อหยุด
+      <b>กางมือ</b> เพื่อหมุนวงล้อให้เร็ว แล้ว <b>กำมือ</b> เพื่อปล่อยให้หยุดนิ่ง
     </div>
     <div class="hold-wrap"><div class="hold-fill" id="holdFill"></div></div>
     <div class="hold-label">ถือกำมือค้างไว้เพื่อยืนยันการหยุด</div>
@@ -207,44 +199,27 @@ body{font-family:'Sarabun',sans-serif;color:#fff;}
 
 <div class="toast" id="toast"></div>
 
-<!-- MediaPipe Hands + Camera/Drawing utils -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
 <script>
-/* ════════════════════════════════════════════════════════════
-   หน้า AR แยก (host บน GitHub Pages — top-level HTTPS page จริง)
-   เพื่อให้ getUserMedia() ขอสิทธิ์กล้องได้ ไม่ถูกบล็อกแบบที่เกิดขึ้น
-   เมื่อรันผ่าน iframe ภายในของ Google Apps Script web app
-
-   การสื่อสารกับ Apps Script:
-   - รับ query param "api"  = URL ของ Apps Script web app (.../exec)
-   - รับ query param "name" = ชื่อสมาชิกที่เลือกไว้จากหน้าหลัก
-   - ดึงข้อมูล:   GET  {api}?api=data
-   - บันทึกผล:   POST {api}   body: {action:"saveDraw", memberName, lotId}
-   ════════════════════════════════════════════════════════════ */
-
 var qs = new URLSearchParams(window.location.search);
 var API_URL = qs.get('api') || '';
 var MEMBER_NAME = qs.get('name') || '';
 
 var LOTS = [], RESULTS = [];
-var wheelAngle = 0;
 var BASE = -Math.PI/2;
 var PALETTE=['#f5c842','#ff6b35','#00d4aa','#a78bfa','#fb7185','#38bdf8','#fbbf24','#34d399','#f472b6','#60a5fa','#facc15','#4ade80','#f87171','#818cf8','#2dd4bf','#fb923c','#c084fc','#86efac','#fca5a5','#93c5fd'];
 
-//var hands=null, camera=null, cameraActive=false, resolved=false;
-// เปลี่ยนตัวแปรควบคุมความเร็ว
-//var spinVelocity=0, isFistNow=false, fistHoldStart=null; 
-//var FIST_HOLD_MS=650, handAngle=0;
 var hands=null, camera=null, cameraActive=false, resolved=false;
-// ตัวแปรควบคุมการหมุนแบบใหม่
-var spinVelocity=0, handAngle=0;
-var isStopping = false; // สถานะกำลังหน่วงหยุด
-var stopStartTime = null; // เวลาที่เริ่มกำมือ
-var STOP_DURATION = 4000; // เวลาหน่วงหยุด (มิลลิวินาที)
-var startAngleForStop = 0; // มุมเริ่มต้นตอนเริ่มหน่วงหยุด
+
+// ตัวแปรควบคุมการหมุนและระยะเวลาหน่วงหยุด
+var spinVelocity=0, handAngle=0, wheelAngle=0;
+var isStopping = false; 
+var stopStartTime = null; 
+var STOP_DURATION = 4000; 
+var startAngleForStop = 0; 
 
 window.onload = function(){
   if(!API_URL){
@@ -260,63 +235,35 @@ window.onload = function(){
 
 function goBack(){
   window.close();
-  // เผื่อ browser บล็อก window.close() (เช่นไม่ได้เปิดจาก window.open)
   setTimeout(function(){
     if(!window.closed){ window.location.href = API_URL || 'about:blank'; }
   }, 200);
 }
 
 // ── โหลดข้อมูลจาก Apps Script ─────────────────────────────────
-// ── โหลดข้อมูลด้วย JSONP ────────────────────────────────────────
-// หมายเหตุ: ไม่ใช้ fetch() เพราะ Apps Script web app (.../exec) จะ 302
-// redirect ไปยัง script.googleusercontent.com และไม่ได้การันตี CORS
-// header ที่สม่ำเสมอเสมอไป ทำให้ fetch() ติด "Failed to fetch" ได้บ่อย
-// JSONP ใช้ <script> tag โหลดข้อมูลแทน ซึ่งไม่ถูกจำกัดด้วย same-origin
-// policy เลย จึงไม่มีทางติด CORS แม้แต่กรณีเดียว
-var JSONP_TIMEOUT_MS = 10000;
-
 function loadData(){
   document.getElementById('loadingMsg').textContent = '📡 กำลังโหลดข้อมูลจากระบบ…';
+  fetch(API_URL + '?api=data')
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      if(!json.ok){ showError('โหลดข้อมูลไม่สำเร็จ: ' + (json.msg||'')); return; }
+      LOTS = json.data.lots;
+      RESULTS = json.data.results;
 
-  var cbName = 'lotteryJsonpCb_' + Date.now();
-  var timeoutId = null;
-  var script = document.createElement('script');
-
-  function cleanup(){
-    if(timeoutId) clearTimeout(timeoutId);
-    delete window[cbName];
-    if(script.parentNode) script.parentNode.removeChild(script);
-  }
-
-  window[cbName] = function(json){
-    cleanup();
-    if(!json.ok){ showError('โหลดข้อมูลไม่สำเร็จ: ' + (json.msg||'')); return; }
-    LOTS = json.data.lots;
-    RESULTS = json.data.results;
-
-    if(findResult('winner', MEMBER_NAME)){
-      showError('คุณได้จับสลากไปแล้ว ไม่สามารถจับซ้ำได้');
-      return;
-    }
-    if(getAvailable().length===0){
-      showError('ไม่มีสลากคงเหลือให้จับแล้ว');
-      return;
-    }
-    startCamera();
-  };
-
-  script.onerror = function(){
-    cleanup();
-    showError('เชื่อมต่อกับระบบหลักไม่สำเร็จ กรุณาตรวจสอบ URL ของระบบ (parameter "api") หรืออินเทอร์เน็ตแล้วลองใหม่');
-  };
-
-  timeoutId = setTimeout(function(){
-    cleanup();
-    showError('เชื่อมต่อกับระบบหลักไม่สำเร็จ (หมดเวลารอ) กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
-  }, JSONP_TIMEOUT_MS);
-
-  script.src = API_URL + '?api=data&callback=' + cbName;
-  document.body.appendChild(script);
+      if(findResult('winner', MEMBER_NAME)){
+        showError('คุณได้จับสลากไปแล้ว ไม่สามารถจับซ้ำได้');
+        return;
+      }
+      if(getAvailable().length===0){
+        showError('ไม่มีสลากคงเหลือให้จับแล้ว');
+        return;
+      }
+      startCamera();
+    })
+    .catch(function(err){
+      console.error(err);
+      showError('เชื่อมต่อกับระบบหลักไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+    });
 }
 
 function findResult(key,val){
@@ -328,21 +275,26 @@ function getAvailable(){
   return LOTS.filter(function(l){ return !l.fixed && drawn.indexOf(l.order)<0; });
 }
 
+// ── การหาตำแหน่งกึ่งกลางวงล้อ ───────────────────────────────────
+function getWheelGeometry() {
+  var cv = document.getElementById('wheelCanvas');
+  var W = cv.width, H = cv.height;
+  var r = Math.min(W, H) * 0.22; 
+  if(r > 110) r = 110;
+  if(r < 65) r = 65;
+  var cx = W - r - 25; 
+  var cy = r + Math.max(80, (window.safeAreaInsetTop || 0) + 70); 
+  return { cx: cx, cy: cy, r: r, W: W, H: H };
+}
+
 // ── วาดวงล้อ ───────────────────────────────────────────────────
 function drawWheel(angle){
   var cv = document.getElementById('wheelCanvas');
   if(!cv) return;
   var ctx = cv.getContext('2d');
-  var W=cv.width, H=cv.height;
-
-  // ปรับขนาดวงล้อให้เล็กลงและสมดุล
-  var r = Math.min(W, H) * 0.22; 
-  if(r > 110) r = 110;
-  if(r < 65) r = 65;
-
-  // ย้ายตำแหน่งไปมุมขวาบน
-  var cx = W - r - 25; 
-  var cy = r + Math.max(80, (window.safeAreaInsetTop || 0) + 70); 
+  
+  var geo = getWheelGeometry();
+  var cx = geo.cx, cy = geo.cy, r = geo.r, W = geo.W, H = geo.H;
 
   ctx.clearRect(0,0,W,H);
 
@@ -367,7 +319,6 @@ function drawWheel(angle){
     ctx.save();
     ctx.translate(cx,cy); ctx.rotate(s+sa/2);
     ctx.textAlign='right'; ctx.fillStyle='rgba(0,0,0,.85)';
-    // ปรับขนาดฟอนต์ให้สมดุลกับวงล้อที่เล็กลง
     var fs = n>18?11:n>12?12:14; 
     ctx.font='bold '+fs+'px Kanit,Sarabun,sans-serif';
     ctx.fillText(av[i].order, r-8, 4);
@@ -376,7 +327,7 @@ function drawWheel(angle){
   ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
   ctx.strokeStyle='rgba(245,200,66,.5)'; ctx.lineWidth=3; ctx.stroke();
 
-  // วาด Pointer (ลูกศรสีทอง) ด้านบนวงล้อแทน CSS เดิม
+  // วาด Pointer (ลูกศรสีทอง)
   var ptrOffset = r + 4;
   ctx.save();
   ctx.translate(cx, cy);
@@ -395,6 +346,7 @@ function drawWheel(angle){
   ctx.stroke();
   ctx.restore();
 }
+
 function resizeCanvases(){
   var stage = document.querySelector('.stage');
   var w = stage.clientWidth, h = stage.clientHeight;
@@ -466,27 +418,49 @@ function onHandResults(results){
   var lm = (results.multiHandLandmarks && results.multiHandLandmarks[0]) || null;
   if(!lm){
     setStatus('none','กำลังค้นหามือ…');
-    fistHoldStart=null; setHold(0);
+    if(!isStopping) spinFriction(); // ถ้าเอามือออกให้หน่วงหยุดแบบปกติ
     return;
   }
 
   drawSkeleton(ctx, lm, skelCv.width, skelCv.height);
-  isFistNow = isFist(lm);
+  
+  var isFistNow = isFist(lm);
+  var isOpenNow = isOpenHand(lm);
 
-  if(isFistNow){ handleFist(); }
-  else{ fistHoldStart=null; setHold(0); handleWave(lm); }
+  if(isFistNow){
+    // กำมือ: เริ่มจับเวลาหยุด 4 วินาที
+    if(!isStopping){
+      isStopping = true;
+      stopStartTime = Date.now();
+      startAngleForStop = handAngle;
+      setStatus('fist','✊ กำลังปล่อยให้วงล้อชะลอตัวลง…');
+      requestAnimationFrame(updateWheelLoop);
+    }
+  } else {
+    // กางมือ: หมุนเพิ่มความเร็ว
+    if(isOpenNow){
+      isStopping = false; // ยกเลิกการหยุดถ้ากางมือใหม่
+      handleOpenHand(); 
+    } else {
+      // ไม่กาง/ไม่กำชัดเจน: หน่วงหยุดปกติ
+      if(!isStopping){
+        setStatus('none','🖐️ กางมือเพื่อหมุนเร็ว หรือ ✊ กำมือเพื่อหยุด');
+        spinFriction();
+      }
+    }
+  }
 }
 
 function drawSkeleton(ctx, lm, W, H){
   var C=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],
          [0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
   ctx.lineWidth=3;
-  ctx.strokeStyle = isFistNow ? 'rgba(255,107,53,.9)' : 'rgba(0,212,170,.85)';
+  ctx.strokeStyle = isStopping ? 'rgba(255,107,53,.9)' : 'rgba(0,212,170,.85)';
   C.forEach(function(c){
     var a=lm[c[0]], b=lm[c[1]];
     ctx.beginPath(); ctx.moveTo(a.x*W,a.y*H); ctx.lineTo(b.x*W,b.y*H); ctx.stroke();
   });
-  ctx.fillStyle = isFistNow ? '#ff6b35' : '#f5c842';
+  ctx.fillStyle = isStopping ? '#ff6b35' : '#f5c842';
   lm.forEach(function(p){ ctx.beginPath(); ctx.arc(p.x*W,p.y*H,4.5,0,Math.PI*2); ctx.fill(); });
 }
 
@@ -501,171 +475,6 @@ function isFist(lm){
   return curled>=3;
 }
 
-function handleFist(){
-  var now=performance.now();
-  if(fistHoldStart===null) fistHoldStart=now;
-  var pct=Math.min((now-fistHoldStart)/FIST_HOLD_MS,1);
-  setHold(pct);
-  setStatus('fist','✊ กำมือค้างไว้… '+Math.round(pct*100)+'%');
-  if(pct>=1 && !resolved){ resolved=true; confirmDraw(); }
-}
-
-function onHandResults(results){
-  if(!cameraActive || resolved) return;
-  var skelCv = document.getElementById('skeleton');
-  var ctx = skelCv.getContext('2d');
-  ctx.clearRect(0,0,skelCv.width,skelCv.height);
-
-  var lm = (results.multiHandLandmarks && results.multiHandLandmarks[0]) || null;
-  if(!lm){
-    setStatus('none','กำลังค้นหามือ…');
-    if(!isStopping) spinFriction(); // เอามือออกให้หน่วงหยุดแบบปกติ
-    return;
-  }
-
-  drawSkeleton(ctx, lm, skelCv.width, skelCv.height);
-  var isFistNow = isFist(lm);
-  var isOpenNow = isOpenHand(lm);
-
-  if(isFistNow){
-    // กำมือ: ถ้ายังไม่เริ่มหยุด ให้เริ่มนับถอยหลัง
-    if(!isStopping){
-      isStopping = true;
-      stopStartTime = Date.now();
-      startAngleForStop = handAngle;
-      setStatus('fist','✊ ปล่อยให้วงล้อหยุดเองใน 4 วินาที…');
-    }
-  } else {
-    // กางมือ: หมุนเร็ว
-    if(isOpenNow){
-      isStopping = false; // ยกเลิกการหยุดถ้ากางมือใหม่
-      // ปรับให้กางมือแล้วหมุนเร็วขึ้นมาก
-function handleOpenHand(){
-  // เพิ่มความเร็วการหมุนอย่างรวดเร็วและนุ่มนวล
-  spinVelocity = spinVelocity * 0.85 + 0.35 * 0.15; // เพิ่ม Factor ความเร็ว
-  if(spinVelocity < 0.1) spinVelocity = 0.1;
-  if(spinVelocity > 0.8) spinVelocity = 0.8; // จำกัดความเร็วสูงสุด
-
-  handAngle += spinVelocity;
-  drawWheel(handAngle);
-  wheelAngle = handAngle;
-  setStatus('wave','🖐️ หมุนเร็ว! กำมือค้างไว้เพื่อปล่อยให้หยุด');
-}
-
-// แรงเสียดทานปกติ (เมื่อเอามือออก) ไม่ใช่การหยุด 4 วินาที
-function spinFriction(){
-  if(Math.abs(spinVelocity) > 0.001){
-    spinVelocity *= 0.96; 
-    handAngle += spinVelocity;
-    drawWheel(handAngle);
-    wheelAngle = handAngle;
-  }
-}
-
-// ระบบหน่วงหยุด 4 วินาทีอย่างเป็นธรรมชาติและแม่นยำ
-function updateWheelLoop() {
-  if (isStopping && stopStartTime) {
-    var elapsed = Date.now() - stopStartTime;
-    var t = elapsed / STOP_DURATION; // 0.0 ถึง 1.0
-
-    if (t < 1) {
-      // ใช้ Ease-Out Cubic: ช้าลงอย่างรวดเร็วในตอนท้ายเพื่อให้ดูเป็นธรรมชาติ
-      // formula: 1 - (1 - t)^3
-      var easeOutCubic = 1 - Math.pow(1 - t, 3);
-      
-      // คำนวณมุม: หมุนเพิ่มจากมุมเริ่มต้น โดยรวมระยะทางที่ได้จากความเร็วต้น
-      // เรากำหนดให้ระยะทางแปรผันตาม Ease-Out เพื่อให้จุดหยุดสมดุล
-      var totalRotation = spinVelocity * 50; // กำหนดระยะทางที่หมุนเพิ่มทั้งหมด
-      handAngle = startAngleForStop + (totalRotation * easeOutCubic);
-      
-      drawWheel(handAngle);
-      wheelAngle = handAngle;
-      
-      requestAnimationFrame(updateWheelLoop); // รัน loop ต่อจนครบ 4 วินาที
-    } else {
-      // ครบ 4 วินาที: หยุดนิ่งและล็อกผล
-      isStopping = false;
-      stopStartTime = null;
-      confirmDrawBasedOnAngle(); // เรียกฟังก์ชันใหม่เพื่อล็อกผลจากมุมที่หยุดจริง
-    }
-  } else {
-    // ถ้าไม่ไช่สถานะหยุด ให้รัน Loop ปกติเผื่อมีการหมุน
-    requestAnimationFrame(updateWheelLoop);
-  }
-}
-
-// เริ่มรัน Loop หลักทันที
-requestAnimationFrame(updateWheelLoop); 
-    } else {
-      // ท่าทางอื่นๆ (ไม่ใช่กำและไม่กาง) ให้หน่วงหยุดปกติ
-      if(!isStopping){
-        setStatus('none','🖐️ กางมือเพื่อหมุน หรือ ✊ กำมือเพื่อปล่อยหยุด');
-        spinFriction();
-      }
-    }
-  }
-}
-// ฟังก์ชันล็อกผลโดยอิงจากมุมที่หยุดจริง ดูความสมดุล
-function confirmDrawBasedOnAngle(){
-  if(resolved) return; // ป้องกันการล็อกผลซ้ำ
-  resolved = true;
-  setStatus('fist','🎯 หยุดแล้ว! กำลังบันทึกผล…');
-
-  // ย้ายตำแหน่งพลุให้ตรงกับวงล้อ
-  var cv = document.getElementById('wheelCanvas');
-  var W=cv.width, H=cv.height;
-  var r = Math.min(W, H) * 0.22; if(r > 110) r = 110; if(r < 65) r = 65;
-  var cx = W - r - 25;
-  var cy = r + Math.max(80, (window.safeAreaInsetTop || 0) + 70); 
-  var burstEl = document.getElementById('burst');
-  if(burstEl) { burstEl.style.left = cx + 'px'; burstEl.style.top = cy + 'px'; }
-  fireBurst();
-
-  // --- คำนวณผลจากมุมที่หยุดจริง ---
-  var av = getAvailable();
-  if(av.length === 0) return;
-
-  var n = av.length;
-  var sa = 2 * Math.PI / n; // มุมต่อ 1 เซกเมนต์
-  
-  // มุมรวมที่หยุดจริง (Normalized ให้อยู่ในช่วง 0 - 2PI)
-  var finalAngle = wheelAngle % (2 * Math.PI);
-  if(finalAngle < 0) finalAngle += (2 * Math.PI); // ป้องกันค่าลบ
-
-  // คำนวณ Index ของเซกเมนต์ที่อยู่บนสุด (ตำแหน่ง 12 นาฬิกา)
-  // สูตร: ((NormalizedAngle - BaseAngle) / SegmentAngle) แล้วปัดเศษ
-  // เราใช้ % n เพื่อให้อยู่ในขอบเขต Array และ n-1-... เพื่อให้ลำดับถูกต้องกับ pointer บนสุด
-  var winnerIndex = Math.floor(((finalAngle - BASE + sa/2) % (2*Math.PI)) / sa);
-  // แก้ไข Index ให้ถูกต้องโดยอิงจากล้อหมุนทวนเข็ม และ Pointer อยู่บนสุด
-  winnerIndex = (n - winnerIndex) % n;
-  
-  if(winnerIndex < 0) winnerIndex = 0; // ป้องกัน Error
-  
-  var winItem = av[winnerIndex];
-
-  // อัปเดต UI และส่งผลกลับ
-  var cv = document.getElementById('wheelCanvas');
-  var ctx = cv.getContext('2d');
-  ctx.fillStyle='white'; ctx.textAlign='center'; ctx.font='bold 24px Kanit';
-  ctx.fillText('ยินดีด้วย!', cv.width/2, cv.height/2 - 20);
-  ctx.fillText('เลขที่ออก: ' + winItem.order, cv.width/2, cv.height/2 + 20);
-
-  // ส่งผลกลับ Google Apps Script
-  if(window.opener && !window.opener.closed){
-    window.opener.postMessage({
-      type: 'DRAW_RESULT',
-      result: { order: winItem.order, lot: winItem.lot, member: winItem.member }
-    }, '*');
-  }
-
-  // ปิดหน้าหลังแสดงผล 5 วินาที
-  setTimeout(function(){
-    setStatus('none','ปิดหน้าต่าง…');
-    if(camera) camera.stop();
-    window.close();
-  }, 5000);
-}
-// ตรวจจับท่ากางมือ (เช็คว่าปลายนิ้วยืดออกห่างจากโคนนิ้ว)
 function isOpenHand(lm){
   var wrist=lm[0];
   function dist(a,b){ var dx=a.x-b.x,dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy); }
@@ -674,79 +483,87 @@ function isOpenHand(lm){
   for(var i=0;i<4;i++){
     if(dist(wrist,lm[tips[i]]) > dist(wrist,lm[mcps[i]])*1.35) extended++;
   }
-  if(dist(wrist,lm[4]) > dist(wrist,lm[2])*1.2) extended++; // เช็คนิ้วโป้ง
-  return extended>=4; // กางอย่างน้อย 4 นิ้ว
+  if(dist(wrist,lm[4]) > dist(wrist,lm[2])*1.2) extended++; 
+  return extended>=4; 
 }
 
 function handleOpenHand(){
-  // เพิ่มความเร็วการหมุนอย่างนุ่มนวล
-  spinVelocity = spinVelocity * 0.9 + 0.15 * 0.1;
-  if(spinVelocity < 0.05) spinVelocity = 0.05;
+  spinVelocity += 0.015;
+  if(spinVelocity > 0.4) spinVelocity = 0.4; // จำกัดความเร็วสูงสุด
+
   handAngle += spinVelocity;
-  drawWheel(handAngle);
   wheelAngle = handAngle;
-  setStatus('wave','🖐️ กำลังหมุน… กำมือค้างไว้เพื่อหยุดและล็อกผล');
+  drawWheel(wheelAngle);
+  setStatus('wave','🖐️ หมุนเร็ว! กำมือค้างไว้เพื่อหยุดนิ่ง');
 }
 
 function spinFriction(){
-  // แรงเสียดทานทำให้วงล้อค่อยๆ ชะลอตัวลงเมื่อไม่ได้กางมือ
   if(Math.abs(spinVelocity) > 0.001){
     spinVelocity *= 0.96; 
     handAngle += spinVelocity;
-    drawWheel(handAngle);
     wheelAngle = handAngle;
+    drawWheel(wheelAngle);
   }
 }
 
-// ── ยืนยันผล: สุ่ม fair ล่วงหน้า แล้วหมุนต่อไปจบที่ผลนั้น ─────────
-function confirmDraw(){
-  setStatus('fist','🎯กำลังหมุนไปจบ…');
+// ── Animation Loop สำหรับการหน่วงหยุด 4 วินาที ───────────────
+function updateWheelLoop() {
+  if (isStopping && stopStartTime && !resolved) {
+    var elapsed = Date.now() - stopStartTime;
+    var t = elapsed / STOP_DURATION; // 0.0 ถึง 1.0
 
-  // ย้ายตำแหน่งพลุให้ตรงกับวงล้อใหม่ที่มุมขวาบน
-  var cv = document.getElementById('wheelCanvas');
-  var W=cv.width, H=cv.height;
-  var r = Math.min(W, H) * 0.22;
-  if(r > 110) r = 110; if(r < 65) r = 65;
-  var cx = W - r - 25;
-  var cy = r + Math.max(80, (window.safeAreaInsetTop || 0) + 70); 
-  var burstEl = document.getElementById('burst');
-  if(burstEl) {
-    burstEl.style.left = cx + 'px';
-    burstEl.style.top = cy + 'px';
-  }
-
-  fireBurst();
-  // ... โค้ดสุ่ม (Math.random()) และคำนวณมุมที่เหลือไม่ต้องแตะต้อง ปล่อยไว้เหมือนเดิมครับ ...
-
-  var av = getAvailable();
-  var winIdx = Math.floor(Math.random()*av.length);
-  var winLot = av[winIdx];
-
-  var n=av.length, sa=2*Math.PI/n;
-  var jitter=(Math.random()-0.5)*sa*0.4;
-  var angleTarget = -(winIdx*sa+sa/2) + jitter;
-
-  var norm=function(a){ return ((a%(2*Math.PI))+2*Math.PI)%(2*Math.PI); };
-  var delta = norm(angleTarget) - norm(wheelAngle);
-  if(delta<=0) delta += 2*Math.PI;
-
-  var totalRot = 2*2*Math.PI + delta; // หมุนต่ออีก 2 รอบให้ลื่นไหล (มี momentum จากมืออยู่แล้ว)
-  var startAngle = wheelAngle;
-  var dur=1600, t0=null;
-  function ease(t){ return 1-Math.pow(1-t,4); }
-
-  function frame(ts){
-    if(!t0) t0=ts;
-    var prog=Math.min((ts-t0)/dur,1);
-    var cur=startAngle+totalRot*ease(prog);
-    drawWheel(cur);
-    if(prog<1){ requestAnimationFrame(frame); }
-    else{
-      wheelAngle = startAngle+totalRot;
-      setTimeout(function(){ saveResult(winLot); }, 250);
+    if (t < 1) {
+      // Ease-out Cubic
+      var easeOutCubic = 1 - Math.pow(1 - t, 3);
+      var totalRotation = spinVelocity * 50; 
+      handAngle = startAngleForStop + (totalRotation * easeOutCubic);
+      wheelAngle = handAngle;
+      
+      drawWheel(wheelAngle);
+      requestAnimationFrame(updateWheelLoop); 
+    } else {
+      isStopping = false;
+      stopStartTime = null;
+      confirmDrawBasedOnAngle(); 
     }
   }
-  requestAnimationFrame(frame);
+}
+
+// ── การคำนวณผู้โชคดีตามมุมที่หยุดนิ่ง ────────────────────────
+function confirmDrawBasedOnAngle(){
+  if(resolved) return;
+  resolved = true;
+  setStatus('fist','🎯 หยุดแล้ว! กำลังบันทึกผล…');
+
+  // ย้ายตำแหน่งพลุให้ตรงกับวงล้อใหม่
+  var geo = getWheelGeometry();
+  var burstEl = document.getElementById('burst');
+  if(burstEl) {
+    burstEl.style.left = geo.cx + 'px';
+    burstEl.style.top = geo.cy + 'px';
+  }
+  fireBurst();
+
+  var av = getAvailable();
+  if(av.length === 0) return;
+
+  var n = av.length;
+  var sa = 2 * Math.PI / n; 
+  
+  // แปลงมุมให้อยู่ในช่วงบวกเพื่อหา Index (สูตรป้องกันค่าติดลบ)
+  var normAngle = ((-wheelAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  var winnerIndex = Math.floor(normAngle / sa);
+  
+  // กันเหนียวกรณีปัดเศษพลาด
+  if(winnerIndex >= n) winnerIndex = n - 1; 
+  if(winnerIndex < 0) winnerIndex = 0;
+  
+  var winLot = av[winnerIndex];
+
+  // ยิง API บันทึกผลไปยัง Google Apps Script
+  setTimeout(function(){
+    saveResult(winLot);
+  }, 250);
 }
 
 function fireBurst(){
@@ -754,43 +571,22 @@ function fireBurst(){
   el.classList.remove('fire'); void el.offsetWidth; el.classList.add('fire');
 }
 
-// ── บันทึกผลกลับไปที่ Apps Script (ด้วย JSONP เช่นเดียวกับ loadData) ──
-// ใช้ GET ผ่าน query string แทน POST เพราะ JSONP รองรับเฉพาะ GET เท่านั้น
-// แต่ข้อดีคือไม่มีทางติด CORS เลย ต่างจาก fetch() ที่เสี่ยงเจอปัญหา
-// "Failed to fetch" จากการ redirect ของ Apps Script
+// ── บันทึกผลกลับไปที่ Apps Script ──────────────────────────────
 function saveResult(lot){
-  var cbName = 'lotterySaveCb_' + Date.now();
-  var timeoutId = null;
-  var script = document.createElement('script');
-
-  function cleanup(){
-    if(timeoutId) clearTimeout(timeoutId);
-    delete window[cbName];
-    if(script.parentNode) script.parentNode.removeChild(script);
-  }
-
-  window[cbName] = function(res){
-    cleanup();
+  fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'}, 
+    body: JSON.stringify({ action:'saveDraw', memberName:MEMBER_NAME, lotId:lot.id })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(res){
     if(res.ok){ showWinner(res.result); }
     else{ toast('❌ '+res.msg,'err'); setTimeout(goBack, 2000); }
-  };
-
-  script.onerror = function(){
-    cleanup();
-    toast('❌ เชื่อมต่อกับระบบหลักไม่สำเร็จ กรุณาแจ้งแอดมิน','err');
-  };
-
-  timeoutId = setTimeout(function(){
-    cleanup();
-    toast('❌ บันทึกผลไม่สำเร็จ (หมดเวลารอ) กรุณาแจ้งแอดมิน','err');
-  }, JSONP_TIMEOUT_MS);
-
-  script.src = API_URL
-    + '?api=saveDraw'
-    + '&name=' + encodeURIComponent(MEMBER_NAME)
-    + '&lotId=' + encodeURIComponent(lot.id)
-    + '&callback=' + cbName;
-  document.body.appendChild(script);
+  })
+  .catch(function(err){
+    console.error(err);
+    toast('❌ บันทึกผลไม่สำเร็จ กรุณาแจ้งแอดมิน','err');
+  });
 }
 
 function showWinner(r){
@@ -820,7 +616,6 @@ function setStatus(kind,text){
   el.className='status-pill '+(kind==='wave'?'st-wave':kind==='fist'?'st-fist':'st-none');
   document.getElementById('statusTxt').textContent=text;
 }
-function setHold(pct){ document.getElementById('holdFill').style.width = Math.round(pct*100)+'%'; }
 
 function toast(msg,type){
   var el=document.getElementById('toast');
