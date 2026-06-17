@@ -260,29 +260,56 @@ function goBack(){
 }
 
 // ── โหลดข้อมูลจาก Apps Script ─────────────────────────────────
+// ── โหลดข้อมูลด้วย JSONP ────────────────────────────────────────
+// หมายเหตุ: ไม่ใช้ fetch() เพราะ Apps Script web app (.../exec) จะ 302
+// redirect ไปยัง script.googleusercontent.com และไม่ได้การันตี CORS
+// header ที่สม่ำเสมอเสมอไป ทำให้ fetch() ติด "Failed to fetch" ได้บ่อย
+// JSONP ใช้ <script> tag โหลดข้อมูลแทน ซึ่งไม่ถูกจำกัดด้วย same-origin
+// policy เลย จึงไม่มีทางติด CORS แม้แต่กรณีเดียว
+var JSONP_TIMEOUT_MS = 10000;
+
 function loadData(){
   document.getElementById('loadingMsg').textContent = '📡 กำลังโหลดข้อมูลจากระบบ…';
-  fetch(API_URL + '?api=data')
-    .then(function(r){ return r.json(); })
-    .then(function(json){
-      if(!json.ok){ showError('โหลดข้อมูลไม่สำเร็จ: ' + (json.msg||'')); return; }
-      LOTS = json.data.lots;
-      RESULTS = json.data.results;
 
-      if(findResult('winner', MEMBER_NAME)){
-        showError('คุณได้จับสลากไปแล้ว ไม่สามารถจับซ้ำได้');
-        return;
-      }
-      if(getAvailable().length===0){
-        showError('ไม่มีสลากคงเหลือให้จับแล้ว');
-        return;
-      }
-      startCamera();
-    })
-    .catch(function(err){
-      console.error(err);
-      showError('เชื่อมต่อกับระบบหลักไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
-    });
+  var cbName = 'lotteryJsonpCb_' + Date.now();
+  var timeoutId = null;
+  var script = document.createElement('script');
+
+  function cleanup(){
+    if(timeoutId) clearTimeout(timeoutId);
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+  }
+
+  window[cbName] = function(json){
+    cleanup();
+    if(!json.ok){ showError('โหลดข้อมูลไม่สำเร็จ: ' + (json.msg||'')); return; }
+    LOTS = json.data.lots;
+    RESULTS = json.data.results;
+
+    if(findResult('winner', MEMBER_NAME)){
+      showError('คุณได้จับสลากไปแล้ว ไม่สามารถจับซ้ำได้');
+      return;
+    }
+    if(getAvailable().length===0){
+      showError('ไม่มีสลากคงเหลือให้จับแล้ว');
+      return;
+    }
+    startCamera();
+  };
+
+  script.onerror = function(){
+    cleanup();
+    showError('เชื่อมต่อกับระบบหลักไม่สำเร็จ กรุณาตรวจสอบ URL ของระบบ (parameter "api") หรืออินเทอร์เน็ตแล้วลองใหม่');
+  };
+
+  timeoutId = setTimeout(function(){
+    cleanup();
+    showError('เชื่อมต่อกับระบบหลักไม่สำเร็จ (หมดเวลารอ) กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+  }, JSONP_TIMEOUT_MS);
+
+  script.src = API_URL + '?api=data&callback=' + cbName;
+  document.body.appendChild(script);
 }
 
 function findResult(key,val){
@@ -508,22 +535,43 @@ function fireBurst(){
   el.classList.remove('fire'); void el.offsetWidth; el.classList.add('fire');
 }
 
-// ── บันทึกผลกลับไปที่ Apps Script ──────────────────────────────
+// ── บันทึกผลกลับไปที่ Apps Script (ด้วย JSONP เช่นเดียวกับ loadData) ──
+// ใช้ GET ผ่าน query string แทน POST เพราะ JSONP รองรับเฉพาะ GET เท่านั้น
+// แต่ข้อดีคือไม่มีทางติด CORS เลย ต่างจาก fetch() ที่เสี่ยงเจอปัญหา
+// "Failed to fetch" จากการ redirect ของ Apps Script
 function saveResult(lot){
-  fetch(API_URL, {
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=utf-8'}, // เลี่ยง CORS preflight ของ Apps Script
-    body: JSON.stringify({ action:'saveDraw', memberName:MEMBER_NAME, lotId:lot.id })
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(res){
+  var cbName = 'lotterySaveCb_' + Date.now();
+  var timeoutId = null;
+  var script = document.createElement('script');
+
+  function cleanup(){
+    if(timeoutId) clearTimeout(timeoutId);
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+  }
+
+  window[cbName] = function(res){
+    cleanup();
     if(res.ok){ showWinner(res.result); }
     else{ toast('❌ '+res.msg,'err'); setTimeout(goBack, 2000); }
-  })
-  .catch(function(err){
-    console.error(err);
-    toast('❌ บันทึกผลไม่สำเร็จ กรุณาแจ้งแอดมิน','err');
-  });
+  };
+
+  script.onerror = function(){
+    cleanup();
+    toast('❌ เชื่อมต่อกับระบบหลักไม่สำเร็จ กรุณาแจ้งแอดมิน','err');
+  };
+
+  timeoutId = setTimeout(function(){
+    cleanup();
+    toast('❌ บันทึกผลไม่สำเร็จ (หมดเวลารอ) กรุณาแจ้งแอดมิน','err');
+  }, JSONP_TIMEOUT_MS);
+
+  script.src = API_URL
+    + '?api=saveDraw'
+    + '&name=' + encodeURIComponent(MEMBER_NAME)
+    + '&lotId=' + encodeURIComponent(lot.id)
+    + '&callback=' + cbName;
+  document.body.appendChild(script);
 }
 
 function showWinner(r){
