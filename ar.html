@@ -27,8 +27,7 @@ body{font-family:'Sarabun',sans-serif;color:#fff;}
 .ar-wheel-canvas{z-index:3;pointer-events:none;transform:none;}
 
 .ar-pointer{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:0;height:0;z-index:6;pointer-events:none;
+  display: none;
 }
 .ar-pointer::after{
   content:'';position:absolute;left:-14px;top:-118px;
@@ -174,7 +173,7 @@ body{font-family:'Sarabun',sans-serif;color:#fff;}
 
   <div class="bottom">
     <div class="hint" id="hint">
-      <b>โบกมือ</b> ซ้าย-ขวา เพื่อหมุนวงล้อ แล้ว <b>กำมือ</b> เพื่อหยุด
+      <b>กางมือ</b> เพื่อหมุนวงล้อ แล้ว <b>กำมือ</b> เพื่อหยุด
     </div>
     <div class="hold-wrap"><div class="hold-fill" id="holdFill"></div></div>
     <div class="hold-label">ถือกำมือค้างไว้เพื่อยืนยันการหยุด</div>
@@ -236,7 +235,8 @@ var BASE = -Math.PI/2;
 var PALETTE=['#f5c842','#ff6b35','#00d4aa','#a78bfa','#fb7185','#38bdf8','#fbbf24','#34d399','#f472b6','#60a5fa','#facc15','#4ade80','#f87171','#818cf8','#2dd4bf','#fb923c','#c084fc','#86efac','#fca5a5','#93c5fd'];
 
 var hands=null, camera=null, cameraActive=false, resolved=false;
-var wristHistory=[], waveVelocity=0, isFistNow=false, fistHoldStart=null;
+// เปลี่ยนตัวแปรควบคุมความเร็ว
+var spinVelocity=0, isFistNow=false, fistHoldStart=null; 
 var FIST_HOLD_MS=650, handAngle=0;
 
 window.onload = function(){
@@ -324,8 +324,19 @@ function getAvailable(){
 // ── วาดวงล้อ ───────────────────────────────────────────────────
 function drawWheel(angle){
   var cv = document.getElementById('wheelCanvas');
+  if(!cv) return;
   var ctx = cv.getContext('2d');
-  var W=cv.width, H=cv.height, cx=W/2, cy=H/2, r=Math.min(W,H)/2-8;
+  var W=cv.width, H=cv.height;
+
+  // ปรับขนาดวงล้อให้เล็กลงและสมดุล
+  var r = Math.min(W, H) * 0.22; 
+  if(r > 110) r = 110;
+  if(r < 65) r = 65;
+
+  // ย้ายตำแหน่งไปมุมขวาบน
+  var cx = W - r - 25; 
+  var cy = r + Math.max(80, (window.safeAreaInsetTop || 0) + 70); 
+
   ctx.clearRect(0,0,W,H);
 
   var av = getAvailable();
@@ -334,7 +345,7 @@ function drawWheel(angle){
     ctx.fillStyle='#1a1a50'; ctx.fill();
     ctx.strokeStyle='#f5c842'; ctx.lineWidth=3; ctx.stroke();
     ctx.fillStyle='#f5c842'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font='bold 16px Kanit,Sarabun,sans-serif';
+    ctx.font='bold 14px Kanit,Sarabun,sans-serif';
     ctx.fillText('จับครบแล้ว! 🎉',cx,cy); return;
   }
 
@@ -349,15 +360,34 @@ function drawWheel(angle){
     ctx.save();
     ctx.translate(cx,cy); ctx.rotate(s+sa/2);
     ctx.textAlign='right'; ctx.fillStyle='rgba(0,0,0,.85)';
-    var fs = n>18?13:n>12?15:18;
+    // ปรับขนาดฟอนต์ให้สมดุลกับวงล้อที่เล็กลง
+    var fs = n>18?11:n>12?12:14; 
     ctx.font='bold '+fs+'px Kanit,Sarabun,sans-serif';
-    ctx.fillText(av[i].order, r-10, 4);
+    ctx.fillText(av[i].order, r-8, 4);
     ctx.restore();
   }
   ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
   ctx.strokeStyle='rgba(245,200,66,.5)'; ctx.lineWidth=3; ctx.stroke();
-}
 
+  // วาด Pointer (ลูกศรสีทอง) ด้านบนวงล้อแทน CSS เดิม
+  var ptrOffset = r + 4;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.beginPath();
+  ctx.moveTo(0, -ptrOffset);
+  ctx.lineTo(-12, -ptrOffset - 24);
+  ctx.lineTo(12, -ptrOffset - 24);
+  ctx.closePath();
+  ctx.fillStyle = '#f5c842';
+  ctx.shadowColor = 'rgba(245,200,66,0.8)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 2;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
 function resizeCanvases(){
   var stage = document.querySelector('.stage');
   var w = stage.clientWidth, h = stage.clientHeight;
@@ -473,31 +503,89 @@ function handleFist(){
   if(pct>=1 && !resolved){ resolved=true; confirmDraw(); }
 }
 
-function handleWave(lm){
-  var wrist=lm[0], now=performance.now();
-  wristHistory.push({x:wrist.x,t:now});
-  while(wristHistory.length>2 && now-wristHistory[0].t>200) wristHistory.shift();
-  if(wristHistory.length>=2){
-    var f=wristHistory[0], l=wristHistory[wristHistory.length-1];
-    var dt=(l.t-f.t)/1000;
-    if(dt>0.01){
-      var inst = ((l.x-f.x)/dt) * 6.0;
-      waveVelocity = waveVelocity*0.7 + inst*0.3;
-    }
-  } else { waveVelocity *= 0.9; }
+function onHandResults(results){
+  if(!cameraActive || resolved) return;
+  var skelCv = document.getElementById('skeleton');
+  var ctx = skelCv.getContext('2d');
+  ctx.clearRect(0,0,skelCv.width,skelCv.height);
 
-  handAngle += (-waveVelocity) * (1/60);
+  var lm = (results.multiHandLandmarks && results.multiHandLandmarks[0]) || null;
+  if(!lm){
+    setStatus('none','กำลังค้นหามือ…');
+    fistHoldStart=null; setHold(0);
+    spinFriction(); // เอามือออก วงล้อค่อยๆ หน่วงหยุด
+    return;
+  }
+
+  drawSkeleton(ctx, lm, skelCv.width, skelCv.height);
+  isFistNow = isFist(lm);
+  var isOpenNow = isOpenHand(lm);
+
+  if(isFistNow){
+    handleFist(); // กำมือ = เริ่มนับถอยหลังล็อกผล
+  } else {
+    fistHoldStart=null; setHold(0);
+    if(isOpenNow){
+      handleOpenHand(); // กางมือ = หมุน
+    } else {
+      setStatus('none','🖐️ กางมือเพื่อหมุน หรือ ✊ กำมือเพื่อหยุด');
+      spinFriction(); // ท่าทางอื่นๆ ให้หน่วงหยุด
+    }
+  }
+}
+
+// ตรวจจับท่ากางมือ (เช็คว่าปลายนิ้วยืดออกห่างจากโคนนิ้ว)
+function isOpenHand(lm){
+  var wrist=lm[0];
+  function dist(a,b){ var dx=a.x-b.x,dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy); }
+  var tips=[8,12,16,20], mcps=[5,9,13,17];
+  var extended=0;
+  for(var i=0;i<4;i++){
+    if(dist(wrist,lm[tips[i]]) > dist(wrist,lm[mcps[i]])*1.35) extended++;
+  }
+  if(dist(wrist,lm[4]) > dist(wrist,lm[2])*1.2) extended++; // เช็คนิ้วโป้ง
+  return extended>=4; // กางอย่างน้อย 4 นิ้ว
+}
+
+function handleOpenHand(){
+  // เพิ่มความเร็วการหมุนอย่างนุ่มนวล
+  spinVelocity = spinVelocity * 0.9 + 0.15 * 0.1;
+  if(spinVelocity < 0.05) spinVelocity = 0.05;
+  handAngle += spinVelocity;
   drawWheel(handAngle);
   wheelAngle = handAngle;
+  setStatus('wave','🖐️ กำลังหมุน… กำมือค้างไว้เพื่อหยุดและล็อกผล');
+}
 
-  if(Math.abs(waveVelocity) > 0.4) setStatus('wave','🖐️ กำลังหมุน… โบกต่อหรือกำมือเพื่อหยุด');
-  else setStatus('none','โบกมือซ้าย-ขวา เพื่อหมุนวงล้อ');
+function spinFriction(){
+  // แรงเสียดทานทำให้วงล้อค่อยๆ ชะลอตัวลงเมื่อไม่ได้กางมือ
+  if(Math.abs(spinVelocity) > 0.001){
+    spinVelocity *= 0.96; 
+    handAngle += spinVelocity;
+    drawWheel(handAngle);
+    wheelAngle = handAngle;
+  }
 }
 
 // ── ยืนยันผล: สุ่ม fair ล่วงหน้า แล้วหมุนต่อไปจบที่ผลนั้น ─────────
 function confirmDraw(){
   setStatus('fist','🎯กำลังหมุนไปจบ…');
+
+  // ย้ายตำแหน่งพลุให้ตรงกับวงล้อใหม่ที่มุมขวาบน
+  var cv = document.getElementById('wheelCanvas');
+  var W=cv.width, H=cv.height;
+  var r = Math.min(W, H) * 0.22;
+  if(r > 110) r = 110; if(r < 65) r = 65;
+  var cx = W - r - 25;
+  var cy = r + Math.max(80, (window.safeAreaInsetTop || 0) + 70); 
+  var burstEl = document.getElementById('burst');
+  if(burstEl) {
+    burstEl.style.left = cx + 'px';
+    burstEl.style.top = cy + 'px';
+  }
+
   fireBurst();
+  // ... โค้ดสุ่ม (Math.random()) และคำนวณมุมที่เหลือไม่ต้องแตะต้อง ปล่อยไว้เหมือนเดิมครับ ...
 
   var av = getAvailable();
   var winIdx = Math.floor(Math.random()*av.length);
