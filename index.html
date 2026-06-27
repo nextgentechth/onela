@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ทดสอบ Git + LIFF + GAS</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f8f9fa; }
+    .box { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    button { background: #1a3a6b; color: white; border: none; padding: 12px 20px; border-radius: 8px; width: 100%; font-size: 16px; cursor: pointer; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    #log { font-size: 14px; color: #333; margin-top: 10px; word-wrap: break-word; }
+  </style>
+</head>
+<body>
+
+  <h2>🛠 ทดสอบแยก Frontend</h2>
+  
+  <div class="box">
+    <strong>1. สถานะ LIFF:</strong>
+    <div id="liffStatus">⏳ กำลังเชื่อมต่อ LINE...</div>
+  </div>
+
+  <div class="box">
+    <strong>2. ส่งข้อมูลไป Google Sheets:</strong>
+    <button id="btnSend" onclick="sendDataToGAS()" disabled>ส่ง ID ทดสอบระบบหลังบ้าน</button>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    // 🔴 1. ใส่ LIFF ID ของคุณ
+    const LIFF_ID = "2010502075-HlZW7Gqe"; 
+    
+    // 🔴 2. ใส่ Web App URL ที่ได้จาก Step 1
+    const GAS_URL = "https://script.google.com/macros/s/AKfycby0Kwpwr33y_x0wL2_MAGc-ZS8G7b1wQrHK4DCEYONe8He6t5EGaxDpwxWuqGykGY_-/exec"; 
+
+    let myUserId = "";
+
+    // เริ่มต้น LIFF (เมื่ออยู่บนโดเมนปกติอย่าง GitHub จะไม่ติดปัญหา Iframe)
+    liff.init({ liffId: LIFF_ID }).then(() => {
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+      
+      liff.getProfile().then(profile => {
+        myUserId = profile.userId;
+        document.getElementById("liffStatus").innerHTML = "✅ ดึง LINE ID สำเร็จ!<br>ID: <b>" + myUserId + "</b>";
+        document.getElementById("btnSend").disabled = false; // ปลดล็อกปุ่ม
+      }).catch(err => {
+        document.getElementById("liffStatus").innerHTML = "❌ ดึง Profile พลาด: " + err.message;
+      });
+
+    }).catch(err => {
+      document.getElementById("liffStatus").innerHTML = "❌ liff.init() พลาด: " + err.message;
+    });
+
+    // ฟังก์ชันส่งข้อมูลข้ามโดเมนไปที่ Google Apps Script
+    function sendDataToGAS() {
+      const logDiv = document.getElementById("log");
+      const btn = document.getElementById("btnSend");
+      
+      btn.disabled = true;
+      btn.innerText = "⏳ กำลังส่งข้อมูล...";
+      logDiv.innerHTML = "กำลังส่งข้อมูลไปที่เซิร์ฟเวอร์...";
+
+      // ใช้ Fetch API ยิงข้อมูลรูปแบบ Text/Plain เพื่อหลบ CORS Preflight ของ Google
+      fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "test_connection", userId: myUserId })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if(data.status === "success") {
+          logDiv.innerHTML = "<span style='color: green;'>" + data.message + "</span>";
+          btn.innerText = "✅ ส่งข้อมูลสำเร็จ";
+        } else {
+          logDiv.innerHTML = "<span style='color: red;'>Error: " + data.message + "</span>";
+          btn.innerText = "❌ เกิดข้อผิดพลาด";
+        }
+      })
+      .catch(error => {
+        logDiv.innerHTML = "<span style='color: red;'>Fetch Error: " + error.message + "</span>";
+        btn.innerText = "❌ เกิดข้อผิดพลาด";
+      });
+    }
+  </script>
+</body>
+</html>
