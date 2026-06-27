@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>ลงทะเบียน — ระบบลาออนไลน์</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Sarabun',sans-serif; background:#f0f4ff; color:#333; }
+  .app-container { max-width: 500px; margin: 0 auto; min-height: 100vh; background: #f0f4ff; position: relative; padding-bottom: 30px;}
+  .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position:sticky; top:0; z-index:50;}
+  .header h1 { font-size:18px; margin:0; }
+  .header p { font-size:12px; color:#aaccff; margin:0; }
+  .step-bar { display:flex; padding:12px 16px; background:#162d55; gap:6px; }
+  .step { flex:1; height:4px; background:#ffffff30; border-radius:2px; }
+  .step.active { background:#fff; }
+  .step.done { background:#f5a623; }
+  .card { background:#fff; margin:16px; padding:20px; border-radius:14px; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+  .card-title { font-size:16px; font-weight:700; color:#1a3a6b; margin-bottom:16px; display:flex; align-items:center; gap:8px;}
+  label { display:block; font-size:13px; color:#555; margin:12px 0 4px; font-weight:600;}
+  input, select { width:100%; padding:12px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:15px; font-family:'Sarabun',sans-serif; outline:none; transition:0.3s; background:#fafafa;}
+  input:focus, select:focus { border-color:#1a3a6b; background:#fff;}
+  .nav-row { display:flex; gap:10px; padding:0 16px; margin-top:20px; }
+  .btn-back { width:50px; background:#fff; border:1.5px solid #ddd; border-radius:12px; font-size:20px; cursor:pointer; color:#555;}
+  .btn-next { flex:1; background:#1a3a6b; color:#fff; border:none; border-radius:12px; padding:14px; font-size:16px; font-weight:700; cursor:pointer; transition:0.3s; box-shadow:0 4px 10px rgba(26,58,107,0.3);}
+  .btn-next:disabled { background:#9ca3af; box-shadow:none; cursor:not-allowed; }
+  .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
+  .spinner { font-size:50px; animation: bounce 0.6s infinite alternate; margin-bottom:10px;}
+  @keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-15px)} }
+  .hide { display: none !important; }
+  .success-box { text-align:center; padding:40px 20px; }
+  .success-box h2 { color:#10B981; margin:15px 0; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <div class="header">
+    <div style="font-size:28px">🦙</div>
+    <div><h1>ลงทะเบียนใช้งาน</h1><p>ระบบลาออนไลน์</p></div>
+  </div>
+  <div class="step-bar">
+    <div class="step active" id="s1"></div><div class="step" id="s2"></div><div class="step" id="s3"></div>
+  </div>
+
+  <div id="step1">
+    <div class="card">
+      <div class="card-title">👤 ข้อมูลส่วนตัว</div>
+      <label>คำนำหน้า</label>
+      <select id="prefix"><option value="นาย">นาย</option><option value="นาง">นาง</option><option value="นางสาว">นางสาว</option></select>
+      <label>ชื่อ</label> <input type="text" id="firstName" placeholder="ระบุชื่อ">
+      <label>นามสกุล</label> <input type="text" id="lastName" placeholder="ระบุนามสกุล">
+    </div>
+    <div class="nav-row"><button class="btn-next" onclick="nextStep(1)">ถัดไป →</button></div>
+  </div>
+
+  <div id="step2" class="hide">
+    <div class="card">
+      <div class="card-title">📞 ข้อมูลติดต่อ</div>
+      <label>อีเมล</label> <input type="email" id="email" placeholder="example@email.com">
+      <label>เบอร์โทรศัพท์</label> <input type="tel" id="phone" placeholder="08XXXXXXXX" maxlength="10">
+    </div>
+    <div class="nav-row"><button class="btn-back" onclick="prevStep(2)">‹</button><button class="btn-next" onclick="nextStep(2)">ถัดไป →</button></div>
+  </div>
+
+  <div id="step3" class="hide">
+    <div class="card">
+      <div class="card-title">🏢 ตำแหน่งงาน</div>
+      <label>ฝ่าย / แผนก</label>
+      <select id="department">
+        <option>ฝ่ายธุรการ</option><option>ฝ่ายการเงิน</option><option>ฝ่ายบัญชี</option>
+        <option>ฝ่ายสินเชื่อ</option><option>ฝ่ายทะเบียน</option><option>ฝ่ายสวัสดิการ</option><option>ฝ่ายบริหาร</option>
+      </select>
+      <label>ตำแหน่ง</label>
+      <select id="position">
+        <option>เจ้าหน้าที่</option><option>ผู้ช่วยผู้จัดการ</option><option>รองผู้จัดการ</option><option>ผู้จัดการ</option>
+      </select>
+    </div>
+    <div class="nav-row"><button class="btn-back" onclick="prevStep(3)">‹</button><button class="btn-next" id="btnSubmit" onclick="submitForm()">ยืนยันข้อมูล ✓</button></div>
+  </div>
+
+  <div id="loading" class="overlay hide">
+    <div class="spinner">🦙</div>
+    <h3 style="color:#1a3a6b;">กำลังประมวลผล...</h3>
+  </div>
+
+  <div id="success" class="overlay hide success-box">
+    <div style="font-size:70px">✅</div>
+    <h2>ลงทะเบียนสำเร็จ!</h2>
+    <p style="color:#666; margin-bottom:20px;">กรุณารอผู้ดูแลระบบยืนยันบัญชีของคุณ</p>
+    <button class="btn-next" style="width:200px" onclick="liff.closeWindow()">ปิดหน้าต่าง</button>
+  </div>
+</div>
+
+<script>
+  // 🔴 สิ่งที่ต้องตั้งค่า
+  const LIFF_ID = "2010395332-urAIJlTe"; 
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbyOBXix2UwTXGMn4H-rvvof_jj51rg1elvGYViPZjXo1-Yx42kIVnOWXpkRqyY0xBQs/exec"; 
+
+  let userId = "";
+
+  async function callAPI(action, payloadData = {}) {
+    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
+    const result = await res.json();
+    if (result.status === 'success') return result.data;
+    throw new Error(result.message);
+  }
+
+  liff.init({ liffId: LIFF_ID }).then(() => {
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
+    liff.getProfile().then(p => { userId = p.userId; });
+  });
+
+  function nextStep(step) {
+    if(step===1 && (!document.getElementById('firstName').value || !document.getElementById('lastName').value)) return alert('กรุณากรอกชื่อ-นามสกุลให้ครบถ้วน');
+    if(step===2 && !document.getElementById('phone').value) return alert('กรุณากรอกเบอร์โทรศัพท์');
+    
+    document.getElementById('step'+step).classList.add('hide');
+    document.getElementById('step'+(step+1)).classList.remove('hide');
+    document.getElementById('s'+step).classList.replace('active','done');
+    document.getElementById('s'+(step+1)).classList.add('active');
+  }
+
+  function prevStep(step) {
+    document.getElementById('step'+step).classList.add('hide');
+    document.getElementById('step'+(step-1)).classList.remove('hide');
+    document.getElementById('s'+step).classList.remove('active');
+    document.getElementById('s'+(step-1)).classList.replace('done','active');
+  }
+
+  function submitForm() {
+    if(!userId) return alert('ข้อผิดพลาด: ไม่พบ LINE ID');
+    
+    document.getElementById('loading').classList.remove('hide');
+    const payload = {
+      lineUserId: userId,
+      name: document.getElementById('prefix').value + document.getElementById('firstName').value.trim() + ' ' + document.getElementById('lastName').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      phone: document.getElementById('phone').value.trim(),
+      department: document.getElementById('department').value,
+      position: document.getElementById('position').value
+    };
+
+    callAPI('registerEmployee', { payload: payload }).then(res => {
+      document.getElementById('loading').classList.add('hide');
+      if(res.ok) document.getElementById('success').classList.remove('hide');
+      else alert(res.msg);
+    }).catch(err => {
+      document.getElementById('loading').classList.add('hide');
+      alert('Error: ' + err.message);
+    });
+  }
+</script>
+</body>
+</html>

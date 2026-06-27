@@ -1,90 +1,164 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ทดสอบ Git + LIFF + GAS</title>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <style>
-    body { font-family: sans-serif; padding: 20px; background: #f8f9fa; }
-    .box { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    button { background: #1a3a6b; color: white; border: none; padding: 12px 20px; border-radius: 8px; width: 100%; font-size: 16px; cursor: pointer; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
-    #log { font-size: 14px; color: #333; margin-top: 10px; word-wrap: break-word; }
-  </style>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>หน้าหลัก — ระบบลาออนไลน์</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Sarabun',sans-serif; background:#f0f4ff; color:#333; }
+  .app-container { max-width: 500px; margin: 0 auto; min-height: 100vh; background: #f0f4ff; position: relative; padding-bottom: 70px;}
+  .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position:sticky; top:0; z-index:50;}
+  .profile-card { background:linear-gradient(135deg,#1a3a6b,#2d5aa0); margin:16px; border-radius:16px; padding:20px; color:#fff; display:flex; align-items:center; gap:15px; box-shadow:0 6px 16px rgba(26,58,107,0.2); }
+  .avatar { width:60px; height:60px; border-radius:50%; border:2px solid #fff; object-fit:cover; background:#ffffff30;}
+  .card { background:#fff; margin:16px; padding:20px; border-radius:14px; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+  .bal-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:15px;}
+  .bal-item { padding:15px 5px; border-radius:12px; text-align:center; }
+  .bal-item h3 { font-size:26px; margin:5px 0 0; }
+  .bal-item p { font-size:11px; color:#666; margin:0;}
+  .bg-blue { background:#eff6ff; color:#3B82F6;}
+  .bg-green { background:#f0fdf4; color:#10B981;}
+  .bg-red { background:#fef2f2; color:#EF4444;}
+  .btn-primary { display:block; width:100%; text-align:center; background:#1a3a6b; color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; text-decoration:none; box-shadow:0 4px 10px rgba(26,58,107,0.3); margin:16px;}
+  .history-item { padding:15px 0; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between; align-items:center;}
+  .history-item:last-child { border:none; }
+  .badge { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:bold; }
+  .st-ok { background:#d1fae5; color:#065f46; } .st-pend { background:#fef3c7; color:#92400e; } .st-rej { background:#fee2e2; color:#991b1b; }
+  .bottom-nav { position:fixed; bottom:0; width:100%; max-width:500px; background:#fff; display:flex; box-shadow:0 -2px 10px rgba(0,0,0,0.05); }
+  .nav-item { flex:1; text-align:center; padding:12px 0; color:#9ca3af; font-size:11px; cursor:pointer; font-weight:600;}
+  .nav-item.active { color:#1a3a6b; border-top:3px solid #1a3a6b; }
+  .nav-icon { font-size:20px; display:block; margin-bottom:2px;}
+  .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
+  .spinner { font-size:50px; animation: bounce 0.6s infinite alternate; }
+  @keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-15px)} }
+  .hide { display: none !important; }
+</style>
 </head>
 <body>
-
-  <h2>🛠 ทดสอบแยก Frontend</h2>
-  
-  <div class="box">
-    <strong>1. สถานะ LIFF:</strong>
-    <div id="liffStatus">⏳ กำลังเชื่อมต่อ LINE...</div>
+<div class="app-container">
+  <div class="header">
+    <div style="font-size:24px">🦙</div>
+    <div style="font-weight:700; font-size:18px;">หน้าหลักระบบลา</div>
   </div>
 
-  <div class="box">
-    <strong>2. ส่งข้อมูลไป Google Sheets:</strong>
-    <button id="btnSend" onclick="sendDataToGAS()" disabled>ส่ง ID ทดสอบระบบหลังบ้าน</button>
-    <div id="log"></div>
+  <div id="loading" class="overlay">
+    <div class="spinner">🦙</div>
+    <h3 style="color:#1a3a6b; margin-top:10px;">กำลังเตรียมข้อมูล...</h3>
   </div>
 
-  <script>
-    // 🔴 1. ใส่ LIFF ID ของคุณ
-    const LIFF_ID = "2010502075-HlZW7Gqe"; 
+  <div id="pg-home">
+    <div class="profile-card">
+      <img id="uImg" src="" class="avatar">
+      <div>
+        <h2 id="uName" style="font-size:18px; margin-bottom:4px;">-</h2>
+        <p id="uDept" style="font-size:13px; opacity:0.8;">-</p>
+        <span style="display:inline-block; padding:3px 10px; background:#ffffff30; border-radius:15px; font-size:11px; margin-top:6px;">✅ สถานะปกติ</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 สรุปวันลาคงเหลือ</div>
+      <div class="bal-grid">
+        <div class="bal-item bg-blue"> <span style="font-size:20px">🏖️</span> <h3 id="bVac">0</h3> <p>พักร้อน</p> </div>
+        <div class="bal-item bg-green"> <span style="font-size:20px">🏠</span> <h3 id="bPer">0</h3> <p>ลากิจ</p> </div>
+        <div class="bal-item bg-red"> <span style="font-size:20px">🏥</span> <h3 id="bSick">0</h3> <p>ลาป่วย</p> </div>
+      </div>
+    </div>
+    <a href="leave-form.html" class="btn-primary" style="width: calc(100% - 32px);">📝 ยื่นใบลาออนไลน์</a>
+  </div>
+
+  <div id="pg-history" class="hide">
+    <div class="card" id="historyList">
+      </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-item active" id="nav-home" onclick="switchTab('home')"><span class="nav-icon">🏠</span>หน้าหลัก</div>
+    <div class="nav-item" id="nav-history" onclick="switchTab('history')"><span class="nav-icon">📜</span>ประวัติการลา</div>
+  </div>
+</div>
+
+<script>
+  // 🔴 สิ่งที่ต้องตั้งค่า
+  const LIFF_ID = "YOUR_LIFF_ID_HERE"; 
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbyOBXix2UwTXGMn4H-rvvof_jj51rg1elvGYViPZjXo1-Yx42kIVnOWXpkRqyY0xBQs/exec"; 
+
+  let userId = '';
+
+  async function callAPI(action, payloadData = {}) {
+    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
+    const result = await res.json();
+    if (result.status === 'success') return result.data;
+    throw new Error(result.message);
+  }
+
+  // รองรับ Routing จาก Webhook
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetPage = urlParams.get('path');
+
+  liff.init({ liffId: LIFF_ID }).then(() => {
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
     
-    // 🔴 2. ใส่ Web App URL ที่ได้จาก Step 1
-    const GAS_URL = "https://script.google.com/macros/s/AKfycby0Kwpwr33y_x0wL2_MAGc-ZS8G7b1wQrHK4DCEYONe8He6t5EGaxDpwxWuqGykGY_-/exec"; 
+    liff.getProfile().then(p => {
+      userId = p.userId;
+      document.getElementById('uImg').src = p.pictureUrl;
+      
+      callAPI('getEmployeeData', { lineUserId: userId }).then(emp => {
+        document.getElementById('loading').classList.add('hide');
+        if (!emp || emp.status !== 'active') {
+          window.location.replace('register.html'); // พาไปลงทะเบียน
+          return;
+        }
+        
+        document.getElementById('uName').innerText = emp.name;
+        document.getElementById('uDept').innerText = emp.department + ' · ' + emp.position;
+        document.getElementById('bVac').innerText = emp.bal_vacation || 0;
+        document.getElementById('bPer').innerText = emp.bal_personal || 0;
+        document.getElementById('bSick').innerText = emp.bal_sick || 0;
 
-    let myUserId = "";
+        if(targetPage === 'leave-form.html') window.location.replace('leave-form.html');
+      }).catch(err => alert("Error: " + err.message));
+    });
+  });
 
-    // เริ่มต้น LIFF (เมื่ออยู่บนโดเมนปกติอย่าง GitHub จะไม่ติดปัญหา Iframe)
-    liff.init({ liffId: LIFF_ID }).then(() => {
-      if (!liff.isLoggedIn()) {
-        liff.login();
+  function switchTab(tab) {
+    document.getElementById('pg-home').classList.add('hide');
+    document.getElementById('pg-history').classList.add('hide');
+    document.getElementById('nav-home').classList.remove('active');
+    document.getElementById('nav-history').classList.remove('active');
+
+    document.getElementById('pg-'+tab).classList.remove('hide');
+    document.getElementById('nav-'+tab).classList.add('active');
+
+    if(tab === 'history') loadHistory();
+  }
+
+  function loadHistory() {
+    const list = document.getElementById('historyList');
+    list.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">กำลังโหลดประวัติ...</div>';
+    callAPI('getLeavesByUser', { lineUserId: userId }).then(data => {
+      if(!data || data.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">ยังไม่มีประวัติการลา</div>';
         return;
       }
-      
-      liff.getProfile().then(profile => {
-        myUserId = profile.userId;
-        document.getElementById("liffStatus").innerHTML = "✅ ดึง LINE ID สำเร็จ!<br>ID: <b>" + myUserId + "</b>";
-        document.getElementById("btnSend").disabled = false; // ปลดล็อกปุ่ม
-      }).catch(err => {
-        document.getElementById("liffStatus").innerHTML = "❌ ดึง Profile พลาด: " + err.message;
-      });
-
-    }).catch(err => {
-      document.getElementById("liffStatus").innerHTML = "❌ liff.init() พลาด: " + err.message;
+      list.innerHTML = data.map(r => {
+        const isOk = r.status === 'approved';
+        const isRej = r.status === 'rejected';
+        const badge = isOk ? '<span class="badge st-ok">อนุมัติ</span>' : isRej ? '<span class="badge st-rej">ไม่อนุมัติ</span>' : '<span class="badge st-pend">รอพิจารณา</span>';
+        const typeName = r.leaveType==='vacation'?'พักร้อน':r.leaveType==='personal'?'ลากิจ':'ลาป่วย';
+        return `
+          <div class="history-item">
+            <div>
+              <div style="font-weight:bold; margin-bottom:4px; color:#1a3a6b;">${typeName} (${r.duration} วัน)</div>
+              <div style="font-size:12px; color:#888;">📅 ${r.startDate} ${r.endDate !== r.startDate ? '- '+r.endDate : ''}</div>
+            </div>
+            <div>${badge}</div>
+          </div>
+        `;
+      }).join('');
     });
-
-    // ฟังก์ชันส่งข้อมูลข้ามโดเมนไปที่ Google Apps Script
-    function sendDataToGAS() {
-      const logDiv = document.getElementById("log");
-      const btn = document.getElementById("btnSend");
-      
-      btn.disabled = true;
-      btn.innerText = "⏳ กำลังส่งข้อมูล...";
-      logDiv.innerHTML = "กำลังส่งข้อมูลไปที่เซิร์ฟเวอร์...";
-
-      // ใช้ Fetch API ยิงข้อมูลรูปแบบ Text/Plain เพื่อหลบ CORS Preflight ของ Google
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "test_connection", userId: myUserId })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if(data.status === "success") {
-          logDiv.innerHTML = "<span style='color: green;'>" + data.message + "</span>";
-          btn.innerText = "✅ ส่งข้อมูลสำเร็จ";
-        } else {
-          logDiv.innerHTML = "<span style='color: red;'>Error: " + data.message + "</span>";
-          btn.innerText = "❌ เกิดข้อผิดพลาด";
-        }
-      })
-      .catch(error => {
-        logDiv.innerHTML = "<span style='color: red;'>Fetch Error: " + error.message + "</span>";
-        btn.innerText = "❌ เกิดข้อผิดพลาด";
-      });
-    }
-  </script>
+  }
+</script>
 </body>
 </html>
