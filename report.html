@@ -13,17 +13,18 @@
   .header img { height: 32px; border-radius: 4px; background:#fff; padding:2px;}
   .btn-back-header { background:none; border:none; color:#fff; font-size:24px; cursor:pointer;}
   .report-container { padding:16px; max-width: 100%; margin: 0 auto;}
-  .table-wrapper { background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); overflow-x:auto; padding:10px;}
+  .table-wrapper { background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); overflow-x:auto; padding:10px; margin-bottom:15px;}
   
   table { width: 100%; border-collapse: collapse; min-width: 1300px; }
   th, td { border-bottom: 1px solid #eef2f6; padding: 12px 10px; text-align: center; font-size: 13px; }
   th { background: #f8fafc; color: #1a3a6b; font-weight: 700; white-space: nowrap; position:sticky; top:0;}
-  /* ตรึงคอลัมน์ชื่อไว้ ไม่ให้เลื่อนหายไปตอนสไลด์ดูตาราง */
   td:nth-child(2), th:nth-child(2) { text-align: left; position:sticky; left:0; background:#fff; z-index:10; font-weight:bold; box-shadow: 2px 0 5px rgba(0,0,0,0.05);}
   th:nth-child(2) { background:#f8fafc; z-index:11;}
   
   .highlight { color:#EF4444; font-weight:bold; }
   .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
+  
+  .btn-export { display:block; width:100%; background:#10B981; color:#fff; border:none; border-radius:10px; padding:14px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 10px rgba(16,185,129,0.3);}
 </style>
 </head>
 <body>
@@ -36,32 +37,28 @@
   <div class="report-container">
     <div style="margin-bottom:10px; color:#555; font-size:13px;">* แสดง <b>"จำนวนวันลาที่ใช้ไป"</b> ของบุคลากรทั้งหมด</div>
     <div class="table-wrapper">
-      <table>
+      <table id="reportTable">
         <thead><tr id="tableHeader"></tr></thead>
         <tbody id="tableBody"></tbody>
       </table>
     </div>
+    <button class="btn-export" onclick="exportToCSV()">📥 ส่งออกเป็น Excel (CSV)</button>
   </div>
 
   <div id="loading" class="overlay">
     <div style="font-size:40px; animation:bounce 0.6s infinite alternate;">📈</div>
     <h3 style="color:#1a3a6b; margin-top:10px;">กำลังรวบรวมข้อมูล...</h3>
   </div>
-<button onclick="exportToCSV()" class="btn-export">📥 Export เป็น CSV/Excel</button>
 
 <script>
-  // ตอนเรียกใช้ ให้เรียกผ่าน AppConfig
-  const LIFF_ID = AppConfig.LIFF_ID;
-  const GAS_URL = AppConfig.GAS_URL;
-
   async function callAPI(action, payloadData = {}) {
-    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
+    const res = await fetch(AppConfig.GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
     const result = await res.json();
     if (result.status === 'success') return result.data;
     throw new Error(result.message || 'API Error');
   }
 
-  liff.init({ liffId: LIFF_ID }).then(() => {
+  liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
     if (!liff.isLoggedIn()) { liff.login(); return; }
     liff.getProfile().then(p => loadReport(p.userId));
   });
@@ -72,12 +69,10 @@
       const config = data.leaveConfig;
       const reports = data.report;
 
-      // หัวตาราง
       let thHTML = `<th>ลำดับ</th> <th>ชื่อ - สกุล</th> <th>ฝ่าย/แผนก</th>`;
-      config.forEach(lt => thHTML += `<th>${lt.emoji}<br>${lt.name}</th>`);
+      config.forEach(lt => thHTML += `<th>${lt.emoji} ${lt.name}</th>`); // ลบ <br> ออกเพื่อให้ Export สวยงาม
       document.getElementById('tableHeader').innerHTML = thHTML;
 
-      // ตัวข้อมูล
       let trHTML = '';
       reports.forEach(row => {
         trHTML += `<tr><td>${row.no}</td><td>${row.name}</td><td>${row.department}</td>`;
@@ -93,20 +88,22 @@
       window.location.replace('index.html');
     });
   }
+
+  // ฟังก์ชันดาวน์โหลดรายงานเป็นไฟล์ CSV (เปิดใน Excel ได้)
   function exportToCSV() {
-  const table = document.getElementById('reportTable');
-  let csv = [];
-  for (let i = 0, row; row = table.rows[i]; i++) {
-    let col = [];
-    for (let j = 0, cell; cell = row.cells[j]; j++) col.push(cell.innerText);
-    csv.push(col.join(","));
+    const table = document.getElementById('reportTable');
+    let csv = [];
+    for (let i = 0, row; row = table.rows[i]; i++) {
+      let col = [];
+      for (let j = 0, cell; cell = row.cells[j]; j++) col.push('"' + cell.innerText.replace(/"/g, '""') + '"');
+      csv.push(col.join(","));
+    }
+    const blob = new Blob(["\ufeff", csv.join("\n")], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "Report_Leave.csv";
+    link.click();
   }
-  const blob = new Blob(["\ufeff", csv.join("\n")], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "Report_Leave.csv";
-  link.click();
-}
 </script>
 </body>
 </html>
