@@ -8,15 +8,16 @@
   @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Sarabun',sans-serif; background:#f4f7fb; color:#333; }
-  .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50;}
-  .header img { height: 32px; border-radius: 4px; }
+  .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+  .header img { height: 32px; border-radius: 4px; background:#fff; padding:2px;}
   .btn-back-header { background:none; border:none; color:#fff; font-size:24px; cursor:pointer;}
   .report-container { padding:16px; max-width: 100%; margin: 0 auto;}
   .table-wrapper { background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); overflow-x:auto; padding:10px;}
   
-  table { width: 100%; border-collapse: collapse; min-width: 1200px; }
+  table { width: 100%; border-collapse: collapse; min-width: 1300px; }
   th, td { border-bottom: 1px solid #eef2f6; padding: 12px 10px; text-align: center; font-size: 13px; }
   th { background: #f8fafc; color: #1a3a6b; font-weight: 700; white-space: nowrap; position:sticky; top:0;}
+  /* ตรึงคอลัมน์ชื่อไว้ ไม่ให้เลื่อนหายไปตอนสไลด์ดูตาราง */
   td:nth-child(2), th:nth-child(2) { text-align: left; position:sticky; left:0; background:#fff; z-index:10; font-weight:bold; box-shadow: 2px 0 5px rgba(0,0,0,0.05);}
   th:nth-child(2) { background:#f8fafc; z-index:11;}
   
@@ -32,7 +33,7 @@
   </div>
 
   <div class="report-container">
-    <div style="margin-bottom:10px; color:#555; font-size:13px;">* แสดงจำนวน <b>"วันลาที่ใช้ไป"</b> ของบุคลากรทั้งหมด</div>
+    <div style="margin-bottom:10px; color:#555; font-size:13px;">* แสดง <b>"จำนวนวันลาที่ใช้ไป"</b> ของบุคลากรทั้งหมด</div>
     <div class="table-wrapper">
       <table>
         <thead><tr id="tableHeader"></tr></thead>
@@ -46,15 +47,18 @@
     <h3 style="color:#1a3a6b; margin-top:10px;">กำลังรวบรวมข้อมูล...</h3>
   </div>
 
+<script src="config.js"></script>
+
 <script>
-  const LIFF_ID = "2010395332-urAIJlTe"; 
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbyOBXix2UwTXGMn4H-rvvof_jj51rg1elvGYViPZjXo1-Yx42kIVnOWXpkRqyY0xBQs/exec"; 
+  // ตอนเรียกใช้ ให้เรียกผ่าน AppConfig
+  const LIFF_ID = AppConfig.LIFF_ID;
+  const GAS_URL = AppConfig.GAS_URL;
 
   async function callAPI(action, payloadData = {}) {
     const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
     const result = await res.json();
     if (result.status === 'success') return result.data;
-    throw new Error(result.message);
+    throw new Error(result.message || 'API Error');
   }
 
   liff.init({ liffId: LIFF_ID }).then(() => {
@@ -68,10 +72,12 @@
       const config = data.leaveConfig;
       const reports = data.report;
 
+      // หัวตาราง
       let thHTML = `<th>ลำดับ</th> <th>ชื่อ - สกุล</th> <th>ฝ่าย/แผนก</th>`;
       config.forEach(lt => thHTML += `<th>${lt.emoji}<br>${lt.name}</th>`);
       document.getElementById('tableHeader').innerHTML = thHTML;
 
+      // ตัวข้อมูล
       let trHTML = '';
       reports.forEach(row => {
         trHTML += `<tr><td>${row.no}</td><td>${row.name}</td><td>${row.department}</td>`;
