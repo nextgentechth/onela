@@ -10,21 +10,21 @@
   body { font-family:'Sarabun',sans-serif; background:#f4f7fb; color:#333; }
   .app-container { max-width: 500px; margin: 0 auto; min-height: 100vh; background: #f4f7fb; position: relative; padding-bottom: 70px;}
   .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position:sticky; top:0; z-index:50;}
+  .header img { height: 36px; border-radius: 4px; }
   .profile-card { background:linear-gradient(135deg,#1a3a6b,#2a5298); margin:16px; border-radius:16px; padding:20px; color:#fff; display:flex; align-items:center; gap:15px; box-shadow:0 6px 16px rgba(26,58,107,0.2); }
   .avatar { width:65px; height:65px; border-radius:50%; border:3px solid #e0e7ff; object-fit:cover; background:#ffffff30;}
   .card { background:#fff; margin:16px; padding:20px; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
-  .card-title { font-size:16px; font-weight:700; color:#1a3a6b; margin-bottom:15px; display:flex; justify-content:space-between;}
+  .card-title { font-size:16px; font-weight:700; color:#1a3a6b; margin-bottom:15px;}
   
-  /* Grid สำหรับวันลา */
   .bal-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
   .bal-item { padding:14px; border-radius:12px; background:#fdfdfe; border:1px solid #eef2f6; display:flex; align-items:center; gap:12px;}
   .bal-icon { font-size:26px; background:#e0e7ff; padding:10px; border-radius:10px;}
   .bal-info { flex:1; }
   .bal-name { font-size:13px; font-weight:700; color:#333; }
-  .bal-used { font-size:16px; font-weight:700; color:#EF4444; margin-top:2px;} /* สีแดงคือใช้ไป */
+  .bal-used { font-size:16px; font-weight:700; color:#EF4444; margin-top:2px;}
   .bal-quota { font-size:11px; color:#6b7280; }
 
-  .btn-primary { display:block; text-align:center; background:#c8960c; color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; text-decoration:none; box-shadow:0 4px 10px rgba(200,150,12,0.3); margin:16px;}
+  .btn-primary { display:block; text-align:center; background:#c8960c; color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; text-decoration:none; box-shadow:0 4px 10px rgba(200,150,12,0.3); margin:16px; width:calc(100% - 32px);}
   
   .history-item { padding:15px; border:1px solid #f0f0f0; border-radius:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;}
   .badge { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:bold; }
@@ -42,8 +42,8 @@
 <body>
 <div class="app-container">
   <div class="header">
-    <div style="font-size:24px">🦙</div>
-    <div style="font-weight:700; font-size:18px;">ระบบลาออนไลน์</div>
+    <img src="https://www.coopkku.com/info/html/images/logo1.png" alt="Logo">
+    <div style="font-weight:700; font-size:18px; color:#fff;">ระบบลาออนไลน์</div>
   </div>
 
   <div id="loading" class="overlay">
@@ -60,13 +60,10 @@
         <span style="display:inline-block; padding:3px 10px; background:#ffffff30; border-radius:15px; font-size:11px; margin-top:6px;">✅ พร้อมใช้งาน</span>
       </div>
     </div>
-
-    <a href="leave-form.html" class="btn-primary">📝 ยื่นแบบฟอร์มลาออนไลน์</a>
-
+    <a href="leave-form.html" class="btn-primary">📝 ยื่นใบลาออนไลน์</a>
     <div class="card">
-      <div class="card-title">📊 สรุปการใช้วันลา (ต่อปี)</div>
-      <div class="bal-grid" id="leaveGrid">
-        </div>
+      <div class="card-title">📊 สรุปวันลาที่ใช้ไป (ต่อปี)</div>
+      <div class="bal-grid" id="leaveGrid"></div>
     </div>
   </div>
 
@@ -79,7 +76,7 @@
 
   <div class="bottom-nav">
     <div class="nav-item active" id="nav-home" onclick="switchTab('home')"><span class="nav-icon">🏠</span>หน้าหลัก</div>
-    <div class="nav-item" id="nav-history" onclick="switchTab('history')"><span class="nav-icon">📜</span>ประวัติการลา</div>
+    <div class="nav-item" id="nav-history" onclick="switchTab('history')"><span class="nav-icon">📜</span>ประวัติ</div>
     <div class="nav-item hide" id="nav-report" onclick="window.location.href='report.html'"><span class="nav-icon">📈</span>รายงานสรุป</div>
   </div>
 </div>
@@ -98,89 +95,48 @@
 
   liff.init({ liffId: LIFF_ID }).then(() => {
     if (!liff.isLoggedIn()) { liff.login(); return; }
-    liff.getProfile().then(p => {
-      myUserId = p.userId;
-      document.getElementById('uImg').src = p.pictureUrl || '';
-      loadDashboard();
-    });
+    liff.getProfile().then(p => { myUserId = p.userId; document.getElementById('uImg').src = p.pictureUrl || ''; loadDashboard(); });
   });
 
   function loadDashboard() {
     callAPI('getDashboardData', { lineUserId: myUserId }).then(data => {
       document.getElementById('loading').classList.add('hide');
-      if (!data || !data.employee || data.employee.status !== 'active') {
-        window.location.replace('register.html'); 
-        return;
-      }
+      if (!data || !data.employee || data.employee.status !== 'active') { window.location.replace('register.html'); return; }
       
       const emp = data.employee;
       document.getElementById('uName').innerText = emp.name;
       document.getElementById('uDept').innerText = emp.department + ' · ' + emp.position;
-      
-      // แสดงปุ่ม Report ถ้ามีสิทธิ์
-      if (data.canViewReport) {
-        document.getElementById('nav-report').classList.remove('hide');
-      }
+      if (data.canViewReport) document.getElementById('nav-report').classList.remove('hide');
 
-      // สร้างตารางสรุปวันลา 11 ประเภท
-      const grid = document.getElementById('leaveGrid');
       let html = '';
       data.leaveConfig.forEach(lt => {
         const used = data.usedLeaves[lt.id] || 0;
         const quotaText = (typeof lt.quota === 'number') ? `สิทธิ: ${lt.quota} วัน` : lt.quota;
-        html += `
-          <div class="bal-item">
-            <div class="bal-icon">${lt.emoji}</div>
-            <div class="bal-info">
-              <div class="bal-name">${lt.name}</div>
-              <div class="bal-used">ใช้ไป: ${used} ${typeof lt.quota === 'number' ? 'วัน' : ''}</div>
-              <div class="bal-quota">${quotaText}</div>
-            </div>
-          </div>
-        `;
+        html += `<div class="bal-item"><div class="bal-icon">${lt.emoji}</div><div class="bal-info"><div class="bal-name">${lt.name}</div><div class="bal-used">ใช้ไป: ${used} ${typeof lt.quota === 'number' ? 'วัน' : ''}</div><div class="bal-quota">${quotaText}</div></div></div>`;
       });
-      grid.innerHTML = html;
+      document.getElementById('leaveGrid').innerHTML = html;
     }).catch(err => alert("Error: " + err.message));
   }
 
   function switchTab(tab) {
-    document.getElementById('pg-home').classList.add('hide');
-    document.getElementById('pg-history').classList.add('hide');
-    document.getElementById('nav-home').classList.remove('active');
-    document.getElementById('nav-history').classList.remove('active');
-
-    document.getElementById('pg-'+tab).classList.remove('hide');
-    document.getElementById('nav-'+tab).classList.add('active');
-
+    document.getElementById('pg-home').classList.add('hide'); document.getElementById('pg-history').classList.add('hide');
+    document.getElementById('nav-home').classList.remove('active'); document.getElementById('nav-history').classList.remove('active');
+    document.getElementById('pg-'+tab).classList.remove('hide'); document.getElementById('nav-'+tab).classList.add('active');
     if(tab === 'history') loadHistory();
   }
 
   function loadHistory() {
-    const list = document.getElementById('historyList');
-    list.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">กำลังโหลดประวัติ...</div>';
+    document.getElementById('historyList').innerHTML = '<div style="text-align:center; color:#666;">กำลังโหลด...</div>';
     callAPI('getLeavesByUser', { lineUserId: myUserId }).then(data => {
-      if(!data || data.length === 0) {
-        list.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">ยังไม่มีประวัติการลา</div>'; return;
-      }
+      if(!data || data.length === 0) { document.getElementById('historyList').innerHTML = '<div style="text-align:center; color:#999;">ไม่มีประวัติ</div>'; return; }
       
-      // Mapping ชื่อประเภท
-      const ln = { vacation:'พักร้อน', personal:'ลากิจ', sick:'ลาป่วย', training:'ฝึกอบรม', maternity:'ลาคลอด', paternity:'ช่วยภรรยาคลอด', childcare:'เลี้ยงดูบุตร', sterilization:'ทำหมัน', ordination:'อุปสมบท', hajj:'ฮัจย์', military:'ฝึกทหาร' };
-      
-      list.innerHTML = data.map(r => {
-        const isOk = r.status === 'approved';
-        const isRej = r.status === 'rejected';
-        const badge = isOk ? '<span class="badge st-ok">อนุมัติ</span>' : isRej ? '<span class="badge st-rej">ไม่อนุมัติ</span>' : '<span class="badge st-pend">รอพิจารณา</span>';
-        const typeName = ln[r.leaveType] || r.leaveType;
-        return `
-          <div class="history-item">
-            <div>
-              <div style="font-weight:bold; margin-bottom:4px; color:#1a3a6b;">${typeName} (${r.duration} วัน)</div>
-              <div style="font-size:12px; color:#888;">📅 ${r.startDate} ${r.endDate !== r.startDate ? '- '+r.endDate : ''}</div>
-            </div>
-            <div>${badge}</div>
-          </div>
-        `;
-      }).join('');
+      callAPI('getDashboardData', { lineUserId: myUserId }).then(db => {
+        const ln = {}; db.leaveConfig.forEach(lt => ln[lt.id] = lt.name);
+        document.getElementById('historyList').innerHTML = data.map(r => {
+          const badge = r.status === 'approved' ? '<span class="badge st-ok">อนุมัติ</span>' : r.status === 'rejected' ? '<span class="badge st-rej">ไม่อนุมัติ</span>' : '<span class="badge st-pend">รอพิจารณา</span>';
+          return `<div class="history-item"><div><div style="font-weight:bold; color:#1a3a6b;">${ln[r.leaveType] || r.leaveType} (${r.duration} วัน)</div><div style="font-size:12px; color:#888;">📅 ${r.startDate} ${r.endDate !== r.startDate ? '- '+r.endDate : ''}</div></div><div>${badge}</div></div>`;
+        }).join('');
+      });
     });
   }
 </script>
