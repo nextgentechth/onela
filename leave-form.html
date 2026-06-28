@@ -11,11 +11,12 @@
   .app-container { max-width: 500px; margin: 0 auto; min-height: 100vh; background: #f4f7fb; position: relative; padding-bottom: 30px;}
   .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position:sticky; top:0; z-index:50;}
   .btn-back-header { background:none; border:none; color:#fff; font-size:24px; cursor:pointer;}
+  .header img { height: 32px; border-radius: 4px; background:#fff; padding:2px;}
   .card { background:#fff; margin:16px; padding:20px; border-radius:14px; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
   .card-title { font-size:16px; font-weight:700; color:#1a3a6b; margin-bottom:16px; border-bottom:2px solid #f0f4ff; padding-bottom:10px;}
   label { display:block; font-size:13px; color:#555; margin:12px 0 6px; font-weight:600;}
   
-  /* ให้ปฏิทินดูดีบนมือถือ */
+  /* รองรับ Date Picker สำหรับมือถือ */
   input[type="date"], select, textarea { width:100%; padding:14px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:15px; font-family:'Sarabun',sans-serif; outline:none; background:#fafafa; -webkit-appearance: none;}
   input:focus, select:focus, textarea:focus { border-color:#1a3a6b; background:#fff;}
   
@@ -28,7 +29,7 @@
 <div class="app-container">
   <div class="header">
     <button class="btn-back-header" onclick="window.location.href='index.html'">‹</button>
-    <img src="https://www.coopkku.com/info/html/images/logo1.png" alt="Logo" style="height:32px; border-radius:4px;">
+    <img src="https://www.coopkku.com/info/html/images/logo1.png" alt="Logo">
     <div style="font-weight:700; font-size:16px; color:#fff;">กรอกแบบฟอร์มลา</div>
   </div>
 
@@ -75,16 +76,19 @@
   </div>
 </div>
 
+<script src="config.js"></script>
+
 <script>
-  const LIFF_ID = "2010395332-urAIJlTe"; 
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbyOBXix2UwTXGMn4H-rvvof_jj51rg1elvGYViPZjXo1-Yx42kIVnOWXpkRqyY0xBQs/exec"; 
+  // ตอนเรียกใช้ ให้เรียกผ่าน AppConfig
+  const LIFF_ID = AppConfig.LIFF_ID;
+  const GAS_URL = AppConfig.GAS_URL;
   let userId = '';
 
   async function callAPI(action, payloadData = {}) {
     const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
     const result = await res.json();
     if (result.status === 'success') return result.data;
-    throw new Error(result.message);
+    throw new Error(result.message || 'API Error');
   }
 
   liff.init({ liffId: LIFF_ID }).then(() => {
@@ -92,7 +96,7 @@
     liff.getProfile().then(p => { userId = p.userId; });
   });
 
-  // ฟังก์ชันแปลงวันที่จากปฏิทิน (YYYY-MM-DD) เป็น พ.ศ. (DD/MM/YYYY)
+  // แปลงวันที่ (YYYY-MM-DD) เป็น พ.ศ. (DD/MM/YYYY) สำหรับส่งเข้า Database
   function formatToThaiDate(dateString) {
     if(!dateString) return "";
     const [y, m, d] = dateString.split('-');
@@ -119,13 +123,13 @@
     };
 
     callAPI('submitLeaveFromLIFF', { payload: payload }).then(res => {
-      if(res.ok) {
+      if(res && res.ok) {
         alert("✅ ส่งคำขอสำเร็จ! รหัสอ้างอิง: " + res.reqId);
         window.location.replace('index.html');
       } else {
         document.getElementById('loading').classList.add('hide');
         document.getElementById('btnSubmit').disabled = false;
-        alert("❌ ข้อผิดพลาด: " + res.msg);
+        alert("❌ ข้อผิดพลาด: " + (res ? res.msg : 'ไม่สามารถอ่านค่าได้'));
       }
     }).catch(err => {
       document.getElementById('loading').classList.add('hide');
