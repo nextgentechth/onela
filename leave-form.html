@@ -16,11 +16,8 @@
   .card { background:#fff; margin:16px; padding:20px; border-radius:14px; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
   .card-title { font-size:16px; font-weight:700; color:#1a3a6b; margin-bottom:16px; border-bottom:2px solid #f0f4ff; padding-bottom:10px;}
   label { display:block; font-size:13px; color:#555; margin:12px 0 6px; font-weight:600;}
-  
-  /* รองรับ Date Picker สำหรับมือถือ */
   input[type="date"], select, textarea { width:100%; padding:14px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:15px; font-family:'Sarabun',sans-serif; outline:none; background:#fafafa; -webkit-appearance: none;}
   input:focus, select:focus, textarea:focus { border-color:#1a3a6b; background:#fff;}
-  
   .btn-submit { width: calc(100% - 32px); margin:16px; background:#c8960c; color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 4px 10px rgba(200,150,12,0.3);}
   .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
   .hide { display: none !important; }
@@ -54,17 +51,11 @@
 
     <label>วันที่เริ่มต้นการลา</label>
     <input type="date" id="startDate">
-
     <label>วันที่สิ้นสุดการลา</label>
     <input type="date" id="endDate">
 
     <label>ช่วงเวลา</label>
-    <select id="period">
-      <option value="full">🌞 เต็มวัน</option>
-      <option value="morning">🌅 ช่วงเช้า</option>
-      <option value="afternoon">🌇 ช่วงบ่าย</option>
-    </select>
-
+    <select id="period"><option value="full">🌞 เต็มวัน</option><option value="morning">🌅 ช่วงเช้า</option><option value="afternoon">🌇 ช่วงบ่าย</option></select>
     <label>เหตุผลการลา</label>
     <textarea id="reason" rows="3" placeholder="ระบุเหตุผลโดยย่อ..."></textarea>
   </div>
@@ -78,24 +69,20 @@
 </div>
 
 <script>
-  // ตอนเรียกใช้ ให้เรียกผ่าน AppConfig
-  const LIFF_ID = AppConfig.LIFF_ID;
-  const GAS_URL = AppConfig.GAS_URL;
   let userId = '';
 
   async function callAPI(action, payloadData = {}) {
-    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
+    const res = await fetch(AppConfig.GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
     const result = await res.json();
     if (result.status === 'success') return result.data;
     throw new Error(result.message || 'API Error');
   }
 
-  liff.init({ liffId: LIFF_ID }).then(() => {
+  liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
     if (!liff.isLoggedIn()) { liff.login(); return; }
     liff.getProfile().then(p => { userId = p.userId; });
   });
 
-  // แปลงวันที่ (YYYY-MM-DD) เป็น พ.ศ. (DD/MM/YYYY) สำหรับส่งเข้า Database
   function formatToThaiDate(dateString) {
     if(!dateString) return "";
     const [y, m, d] = dateString.split('-');
