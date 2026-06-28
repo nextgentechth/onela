@@ -9,14 +9,15 @@
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Sarabun',sans-serif; background:#f4f7fb; color:#333; }
   .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50;}
+  .header img { height: 32px; border-radius: 4px; }
   .btn-back-header { background:none; border:none; color:#fff; font-size:24px; cursor:pointer;}
-  .report-container { padding:16px; }
+  .report-container { padding:16px; max-width: 100%; margin: 0 auto;}
   .table-wrapper { background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); overflow-x:auto; padding:10px;}
   
-  table { width: 100%; border-collapse: collapse; min-width: 1200px; /* บังคับให้กว้างเพื่อเลื่อนดู 11 คอลัมน์ได้ */}
+  table { width: 100%; border-collapse: collapse; min-width: 1200px; }
   th, td { border-bottom: 1px solid #eef2f6; padding: 12px 10px; text-align: center; font-size: 13px; }
   th { background: #f8fafc; color: #1a3a6b; font-weight: 700; white-space: nowrap; position:sticky; top:0;}
-  td:nth-child(2), th:nth-child(2) { text-align: left; position:sticky; left:0; background:#fff; z-index:10; font-weight:bold;} /* ตรึงคอลัมน์ชื่อไว้ */
+  td:nth-child(2), th:nth-child(2) { text-align: left; position:sticky; left:0; background:#fff; z-index:10; font-weight:bold; box-shadow: 2px 0 5px rgba(0,0,0,0.05);}
   th:nth-child(2) { background:#f8fafc; z-index:11;}
   
   .highlight { color:#EF4444; font-weight:bold; }
@@ -26,20 +27,16 @@
 <body>
   <div class="header">
     <button class="btn-back-header" onclick="window.location.href='index.html'">‹</button>
-    <div style="font-weight:700; font-size:18px;">รายงานสรุปการใช้วันลา (ประจำปี)</div>
+    <img src="https://www.coopkku.com/info/html/images/logo1.png" alt="Logo">
+    <div style="font-weight:700; font-size:16px;">รายงานสรุปการใช้วันลา</div>
   </div>
 
   <div class="report-container">
     <div style="margin-bottom:10px; color:#555; font-size:13px;">* แสดงจำนวน <b>"วันลาที่ใช้ไป"</b> ของบุคลากรทั้งหมด</div>
-    
     <div class="table-wrapper">
-      <table id="reportTable">
-        <thead>
-          <tr id="tableHeader">
-            </tr>
-        </thead>
-        <tbody id="tableBody">
-          </tbody>
+      <table>
+        <thead><tr id="tableHeader"></tr></thead>
+        <tbody id="tableBody"></tbody>
       </table>
     </div>
   </div>
@@ -68,36 +65,25 @@
   function loadReport(userId) {
     callAPI('getReportData', { lineUserId: userId }).then(data => {
       document.getElementById('loading').style.display = 'none';
-      
       const config = data.leaveConfig;
       const reports = data.report;
 
-      // สร้างหัวตาราง (Headers)
       let thHTML = `<th>ลำดับ</th> <th>ชื่อ - สกุล</th> <th>ฝ่าย/แผนก</th>`;
-      config.forEach(lt => {
-        thHTML += `<th>${lt.emoji}<br>${lt.name}</th>`;
-      });
+      config.forEach(lt => thHTML += `<th>${lt.emoji}<br>${lt.name}</th>`);
       document.getElementById('tableHeader').innerHTML = thHTML;
 
-      // สร้างข้อมูลตาราง (Body)
       let trHTML = '';
       reports.forEach(row => {
-        trHTML += `<tr>
-          <td>${row.no}</td>
-          <td>${row.name}</td>
-          <td>${row.department}</td>`;
-          
+        trHTML += `<tr><td>${row.no}</td><td>${row.name}</td><td>${row.department}</td>`;
         config.forEach(lt => {
           const used = row[lt.id];
           trHTML += `<td class="${used > 0 ? 'highlight' : ''}">${used > 0 ? used : '-'}</td>`;
         });
-        
         trHTML += `</tr>`;
       });
       document.getElementById('tableBody').innerHTML = trHTML;
-
     }).catch(err => {
-      alert("❌ เกิดข้อผิดพลาด หรือ คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (" + err.message + ")");
+      alert("❌ คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (" + err.message + ")");
       window.location.replace('index.html');
     });
   }
