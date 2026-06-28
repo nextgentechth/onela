@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>รายงานสรุปการใช้วันลา</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Sarabun',sans-serif; background:#f4f7fb; color:#333; }
+  .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50;}
+  .btn-back-header { background:none; border:none; color:#fff; font-size:24px; cursor:pointer;}
+  .report-container { padding:16px; }
+  .table-wrapper { background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); overflow-x:auto; padding:10px;}
+  
+  table { width: 100%; border-collapse: collapse; min-width: 1200px; /* บังคับให้กว้างเพื่อเลื่อนดู 11 คอลัมน์ได้ */}
+  th, td { border-bottom: 1px solid #eef2f6; padding: 12px 10px; text-align: center; font-size: 13px; }
+  th { background: #f8fafc; color: #1a3a6b; font-weight: 700; white-space: nowrap; position:sticky; top:0;}
+  td:nth-child(2), th:nth-child(2) { text-align: left; position:sticky; left:0; background:#fff; z-index:10; font-weight:bold;} /* ตรึงคอลัมน์ชื่อไว้ */
+  th:nth-child(2) { background:#f8fafc; z-index:11;}
+  
+  .highlight { color:#EF4444; font-weight:bold; }
+  .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <button class="btn-back-header" onclick="window.location.href='index.html'">‹</button>
+    <div style="font-weight:700; font-size:18px;">รายงานสรุปการใช้วันลา (ประจำปี)</div>
+  </div>
+
+  <div class="report-container">
+    <div style="margin-bottom:10px; color:#555; font-size:13px;">* แสดงจำนวน <b>"วันลาที่ใช้ไป"</b> ของบุคลากรทั้งหมด</div>
+    
+    <div class="table-wrapper">
+      <table id="reportTable">
+        <thead>
+          <tr id="tableHeader">
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+          </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="loading" class="overlay">
+    <div style="font-size:40px; animation:bounce 0.6s infinite alternate;">📈</div>
+    <h3 style="color:#1a3a6b; margin-top:10px;">กำลังรวบรวมข้อมูล...</h3>
+  </div>
+
+<script>
+  const LIFF_ID = "2010395332-urAIJlTe"; 
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbyOBXix2UwTXGMn4H-rvvof_jj51rg1elvGYViPZjXo1-Yx42kIVnOWXpkRqyY0xBQs/exec"; 
+
+  async function callAPI(action, payloadData = {}) {
+    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
+    const result = await res.json();
+    if (result.status === 'success') return result.data;
+    throw new Error(result.message);
+  }
+
+  liff.init({ liffId: LIFF_ID }).then(() => {
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    liff.getProfile().then(p => loadReport(p.userId));
+  });
+
+  function loadReport(userId) {
+    callAPI('getReportData', { lineUserId: userId }).then(data => {
+      document.getElementById('loading').style.display = 'none';
+      
+      const config = data.leaveConfig;
+      const reports = data.report;
+
+      // สร้างหัวตาราง (Headers)
+      let thHTML = `<th>ลำดับ</th> <th>ชื่อ - สกุล</th> <th>ฝ่าย/แผนก</th>`;
+      config.forEach(lt => {
+        thHTML += `<th>${lt.emoji}<br>${lt.name}</th>`;
+      });
+      document.getElementById('tableHeader').innerHTML = thHTML;
+
+      // สร้างข้อมูลตาราง (Body)
+      let trHTML = '';
+      reports.forEach(row => {
+        trHTML += `<tr>
+          <td>${row.no}</td>
+          <td>${row.name}</td>
+          <td>${row.department}</td>`;
+          
+        config.forEach(lt => {
+          const used = row[lt.id];
+          trHTML += `<td class="${used > 0 ? 'highlight' : ''}">${used > 0 ? used : '-'}</td>`;
+        });
+        
+        trHTML += `</tr>`;
+      });
+      document.getElementById('tableBody').innerHTML = trHTML;
+
+    }).catch(err => {
+      alert("❌ เกิดข้อผิดพลาด หรือ คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (" + err.message + ")");
+      window.location.replace('index.html');
+    });
+  }
+</script>
+</body>
+</html>
