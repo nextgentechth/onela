@@ -14,12 +14,10 @@
   .card { background:#fff; margin:16px; padding:20px; border-radius:14px; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
   .card-title { font-size:16px; font-weight:700; color:#1a3a6b; margin-bottom:16px; border-bottom:2px solid #f0f4ff; padding-bottom:10px;}
   label { display:block; font-size:13px; color:#555; margin:12px 0 6px; font-weight:600;}
-  input, select, textarea { width:100%; padding:12px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:15px; font-family:'Sarabun',sans-serif; outline:none; background:#fafafa;}
+  input, select, textarea { width:100%; padding:12px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:15px; font-family:'Sarabun',sans-serif; outline:none; background:#fafafa; -webkit-appearance: none;}
   input:focus, select:focus, textarea:focus { border-color:#1a3a6b; background:#fff;}
   .btn-submit { width: calc(100% - 32px); margin:16px; background:#c8960c; color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 4px 10px rgba(200,150,12,0.3);}
   .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
-  .spinner { font-size:50px; animation: bounce 0.6s infinite alternate; }
-  @keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-15px)} }
   .hide { display: none !important; }
 </style>
 </head>
@@ -32,12 +30,20 @@
 
   <div class="card">
     <div class="card-title">📝 รายละเอียดการลา</div>
+    
     <label>ประเภทการลา</label>
     <select id="leaveType">
-      <option value="vacation">🏖️ ลาพักร้อน</option>
-      <option value="personal">🏠 ลากิจส่วนตัว</option>
-      <option value="sick">🏥 ลาป่วย</option>
-      <option value="other">📋 อื่นๆ</option>
+      <option value="vacation">🏖️ พักร้อน (ไม่เกิน 10 วัน/ปี)</option>
+      <option value="personal">🏠 ลากิจ (ไม่เกิน 10 วัน/ปี)</option>
+      <option value="sick">🏥 ลาป่วย (ไม่เกิน 60 วัน/ปี)</option>
+      <option value="training">📚 ฝึกอบรม (ไม่เกิน 15 วัน/ปี)</option>
+      <option value="maternity">🤰 ลาคลอดบุตร (ไม่เกิน 120 วัน/ปี)</option>
+      <option value="paternity">👨‍🍼 ช่วยภรรยาคลอด (ไม่เกิน 15 วัน/ปี)</option>
+      <option value="childcare">👶 เลี้ยงดูบุตร (ไม่เกิน 15 วัน/ปี)</option>
+      <option value="sterilization">✂️ ทำหมัน (ตามแพทย์กำหนด)</option>
+      <option value="ordination">🪷 อุปสมบท (ไม่เกิน 120 วัน/ปี)</option>
+      <option value="hajj">🕋 ฮัจย์ (ไม่เกิน 120 วัน/ปี)</option>
+      <option value="military">🪖 ฝึกทหาร (ตามราชการ)</option>
     </select>
 
     <label>วันที่เริ่มต้น (วว/ดด/ปปปป)</label>
@@ -60,13 +66,12 @@
   <button class="btn-submit" id="btnSubmit" onclick="doSubmit()">🦙 ส่งคำขอลา</button>
 
   <div id="loading" class="overlay hide">
-    <div class="spinner">🦙</div>
+    <div style="font-size:40px;">⏳</div>
     <h3 style="color:#1a3a6b; margin-top:10px;">กำลังส่งคำขอ...</h3>
   </div>
 </div>
 
 <script>
-  // 🔴 สิ่งที่ต้องตั้งค่า
   const LIFF_ID = "2010395332-urAIJlTe"; 
   const GAS_URL = "https://script.google.com/macros/s/AKfycbyOBXix2UwTXGMn4H-rvvof_jj51rg1elvGYViPZjXo1-Yx42kIVnOWXpkRqyY0xBQs/exec"; 
 
@@ -86,9 +91,10 @@
 
   function doSubmit() {
     if(!userId) return alert("ไม่พบ LINE ID กรุณารอสักครู่");
-    if(!document.getElementById('startDate').value) return alert("กรุณาระบุวันที่ลา");
+    if(!document.getElementById('startDate').value) return alert("กรุณาระบุวันที่เริ่มต้น");
 
     document.getElementById('loading').classList.remove('hide');
+    document.getElementById('btnSubmit').disabled = true;
     
     const payload = {
       lineUserId: userId,
@@ -105,10 +111,12 @@
         window.location.replace('index.html');
       } else {
         document.getElementById('loading').classList.add('hide');
+        document.getElementById('btnSubmit').disabled = false;
         alert("❌ ข้อผิดพลาด: " + res.msg);
       }
     }).catch(err => {
       document.getElementById('loading').classList.add('hide');
+      document.getElementById('btnSubmit').disabled = false;
       alert("❌ Error: " + err.message);
     });
   }
