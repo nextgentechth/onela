@@ -143,6 +143,19 @@
       });
     });
   }
+  // ในฟังก์ชัน loadDashboard()
+function loadDashboard() {
+  callAPI('getDashboardData', { lineUserId: myUserId }).then(data => {
+    // ...
+    // แสดงปุ่มรายงาน
+    if (data.canViewReport) document.getElementById('nav-report').classList.remove('hide');
+    
+    // 🌟 แสดงปุ่มอนุมัติหากเป็นผู้อนุมัติ
+    if (data.isApprover) {
+      document.getElementById('nav-approval').classList.remove('hide');
+    }
+  });
+}
 </script>
 </body>
 </html>
