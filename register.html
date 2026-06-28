@@ -70,19 +70,16 @@
 </div>
 
 <script>
-  // ตอนเรียกใช้ ให้เรียกผ่าน AppConfig
-  const LIFF_ID = AppConfig.LIFF_ID;
-  const GAS_URL = AppConfig.GAS_URL; 
   let userId = "";
 
   async function callAPI(action, payloadData = {}) {
-    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
+    const res = await fetch(AppConfig.GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
     const result = await res.json();
     if (result.status === 'success') return result.data;
     throw new Error(result.message);
   }
 
-  liff.init({ liffId: LIFF_ID }).then(() => {
+  liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
     liff.getProfile().then(p => { userId = p.userId; });
   });
