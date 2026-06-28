@@ -4,8 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>หน้าหลัก — ระบบลาออนไลน์</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="config.js"></script> 
-  
+<script src="config.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -82,21 +81,18 @@
     <div class="nav-item hide" id="nav-report" onclick="window.location.href='report.html'"><span class="nav-icon">📈</span>รายงานสรุป</div>
   </div>
 </div>
- 
+
 <script>
-  // ตอนเรียกใช้ ให้เรียกผ่าน AppConfig
-  const LIFF_ID = AppConfig.LIFF_ID;
-  const GAS_URL = AppConfig.GAS_URL;
   let myUserId = '';
 
   async function callAPI(action, payloadData = {}) {
-    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
+    const res = await fetch(AppConfig.GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
     const result = await res.json();
     if (result.status === 'success') return result.data;
     throw new Error(result.message || 'API Error');
   }
 
-  liff.init({ liffId: LIFF_ID }).then(() => {
+  liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
     if (!liff.isLoggedIn()) { liff.login(); return; }
     liff.getProfile().then(p => { myUserId = p.userId; document.getElementById('uImg').src = p.pictureUrl || ''; loadDashboard(); });
   });
@@ -144,19 +140,6 @@
       });
     });
   }
-  // ในฟังก์ชัน loadDashboard()
-function loadDashboard() {
-  callAPI('getDashboardData', { lineUserId: myUserId }).then(data => {
-    // ...
-    // แสดงปุ่มรายงาน
-    if (data.canViewReport) document.getElementById('nav-report').classList.remove('hide');
-    
-    // 🌟 แสดงปุ่มอนุมัติหากเป็นผู้อนุมัติ
-    if (data.isApprover) {
-      document.getElementById('nav-approval').classList.remove('hide');
-    }
-  });
-}
 </script>
 </body>
 </html>
