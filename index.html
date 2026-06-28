@@ -4,7 +4,8 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>หน้าหลัก — ระบบลาออนไลน์</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<style>
+<script src="config.js"></script> 
+  <style>
   @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Sarabun',sans-serif; background:#f4f7fb; color:#333; }
@@ -80,8 +81,7 @@
     <div class="nav-item hide" id="nav-report" onclick="window.location.href='report.html'"><span class="nav-icon">📈</span>รายงานสรุป</div>
   </div>
 </div>
-
-<script src="config.js"></script>  
+ 
 <script>
   // ตอนเรียกใช้ ให้เรียกผ่าน AppConfig
   const LIFF_ID = AppConfig.LIFF_ID;
