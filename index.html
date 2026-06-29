@@ -49,7 +49,7 @@
 
   <div id="loading" class="overlay">
     <div style="font-size:40px; animation:bounce 0.6s infinite alternate;">⏳</div>
-    <h3 style="color:#1a3a6b; margin-top:10px;">กำลังโหลดข้อมูล...</h3>
+    <h3 style="color:#1a3a6b; margin-top:10px;">กำลังประมวลผล...</h3>
   </div>
 
   <div id="pg-home">
@@ -75,10 +75,18 @@
     </div>
   </div>
 
+  <div id="pg-approval" class="hide">
+    <div class="card">
+      <div class="card-title">📝 รายการรอพิจารณาอนุมัติ</div>
+      <div id="approvalList"></div>
+    </div>
+  </div>
+
   <div class="bottom-nav">
     <div class="nav-item active" id="nav-home" onclick="switchTab('home')"><span class="nav-icon">🏠</span>หน้าหลัก</div>
     <div class="nav-item" id="nav-history" onclick="switchTab('history')"><span class="nav-icon">📜</span>ประวัติ</div>
-    <div class="nav-item hide" id="nav-report" onclick="window.location.href='report.html'"><span class="nav-icon">📈</span>รายงานสรุป</div>
+    <div class="nav-item hide" id="nav-approval" onclick="switchTab('approval')"><span class="nav-icon">✅</span>อนุมัติ</div>
+    <div class="nav-item hide" id="nav-report" onclick="window.location.href='report.html'"><span class="nav-icon">📈</span>รายงาน</div>
   </div>
 </div>
 
@@ -106,7 +114,9 @@
       document.getElementById('uName').innerText = emp.name;
       document.getElementById('uDept').innerText = emp.department + ' · ' + emp.position;
       
+      // ปลดล็อกเมนูตามสิทธิ์
       if (data.canViewReport) document.getElementById('nav-report').classList.remove('hide');
+      if (data.isApprover) document.getElementById('nav-approval').classList.remove('hide');
 
       let html = '';
       data.leaveConfig.forEach(lt => {
@@ -119,10 +129,19 @@
   }
 
   function switchTab(tab) {
-    document.getElementById('pg-home').classList.add('hide'); document.getElementById('pg-history').classList.add('hide');
-    document.getElementById('nav-home').classList.remove('active'); document.getElementById('nav-history').classList.remove('active');
-    document.getElementById('pg-'+tab).classList.remove('hide'); document.getElementById('nav-'+tab).classList.add('active');
+    document.getElementById('pg-home').classList.add('hide'); 
+    document.getElementById('pg-history').classList.add('hide');
+    document.getElementById('pg-approval').classList.add('hide');
+    
+    document.getElementById('nav-home').classList.remove('active'); 
+    document.getElementById('nav-history').classList.remove('active');
+    document.getElementById('nav-approval').classList.remove('active');
+
+    document.getElementById('pg-'+tab).classList.remove('hide'); 
+    document.getElementById('nav-'+tab).classList.add('active');
+    
     if(tab === 'history') loadHistory();
+    if(tab === 'approval') loadApprovals();
   }
 
   function loadHistory() {
@@ -137,6 +156,67 @@
           return `<div class="history-item"><div><div style="font-weight:bold; color:#1a3a6b;">${ln[r.leaveType] || r.leaveType} (${r.duration} วัน)</div><div style="font-size:12px; color:#888;">📅 ${r.startDate} ${r.endDate !== r.startDate ? '- '+r.endDate : ''}</div></div><div>${badge}</div></div>`;
         }).join('');
       });
+    });
+  }
+
+  // 🌟 ฟังก์ชันโหลดรายการสำหรับอนุมัติ (L1 และ L2)
+  function loadApprovals() {
+    document.getElementById('approvalList').innerHTML = '<div style="text-align:center; color:#666;">กำลังค้นหารายการ...</div>';
+    callAPI('getPendingApprovals', { lineUserId: myUserId }).then(data => {
+      if(!data || data.length === 0) { 
+        document.getElementById('approvalList').innerHTML = '<div style="text-align:center; padding:20px; color:#999;">🎉 ไม่มีคำขอลาที่รออนุมัติ</div>'; 
+        return; 
+      }
+      
+      callAPI('getDashboardData', { lineUserId: myUserId }).then(db => {
+        const ln = {}; db.leaveConfig.forEach(lt => ln[lt.id] = lt.name);
+        let html = '';
+        data.forEach(r => {
+          html += `
+          <div class="history-item" style="flex-direction:column; align-items:flex-start; gap:8px;">
+            <div style="width:100%; border-bottom:1px dashed #eef2f6; padding-bottom:8px; margin-bottom:4px;">
+              <div style="font-weight:700; color:#1a3a6b; font-size:15px;">👤 ${r.name}</div>
+              <div style="font-size:12px; color:#666;">ตำแหน่ง: ${r.position}</div>
+            </div>
+            <div style="width:100%; margin-bottom:8px;">
+              <div style="font-size:14px; font-weight:600; color:#c8960c;">ประเภท: ${ln[r.leaveType] || r.leaveType} (${r.duration} วัน)</div>
+              <div style="font-size:13px; color:#555;">📅 ${r.startDate} ${r.endDate !== r.startDate ? '- '+r.endDate : ''}</div>
+              <div style="font-size:12px; color:#888; margin-top:4px;">เหตุผล: ${r.reason || '-'}</div>
+            </div>
+            <div style="display:flex; gap:10px; width:100%;">
+              <button onclick="submitApproval('${r.requestId}', 'approved')" style="flex:1; padding:10px; background:#10B981; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">✅ อนุมัติ</button>
+              <button onclick="submitApproval('${r.requestId}', 'rejected')" style="flex:1; padding:10px; background:#EF4444; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">❌ ไม่อนุมัติ</button>
+            </div>
+          </div>
+          `;
+        });
+        document.getElementById('approvalList').innerHTML = html;
+      });
+    });
+  }
+
+  // 🌟 ฟังก์ชันส่งคำสั่งอนุมัติไปยังหลังบ้าน
+  function submitApproval(reqId, decision) {
+    let note = '';
+    if (decision === 'rejected') {
+      note = prompt('โปรดระบุเหตุผลที่ไม่อนุมัติ (ถ้ามี):') || '';
+    } else {
+      if(!confirm('ยืนยันการ "อนุมัติ" รายการนี้ใช่หรือไม่?')) return;
+    }
+
+    document.getElementById('loading').classList.remove('hide');
+    callAPI('processApprovalFromWeb', { 
+      lineUserId: myUserId, 
+      reqId: reqId, 
+      decision: decision, 
+      note: note 
+    }).then(res => {
+      document.getElementById('loading').classList.add('hide');
+      alert('✅ ดำเนินการบันทึกสำเร็จ');
+      loadApprovals(); // โหลดรายการใหม่ทันที
+    }).catch(err => {
+      document.getElementById('loading').classList.add('hide');
+      alert('❌ เกิดข้อผิดพลาด: ' + err.message);
     });
   }
 </script>
