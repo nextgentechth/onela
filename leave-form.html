@@ -18,9 +18,15 @@
   label { display:block; font-size:13px; color:#555; margin:12px 0 6px; font-weight:600;}
   input[type="date"], select, textarea { width:100%; padding:14px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:15px; font-family:'Sarabun',sans-serif; outline:none; background:#fafafa; -webkit-appearance: none;}
   input:focus, select:focus, textarea:focus { border-color:#1a3a6b; background:#fff;}
-  .btn-submit { width: calc(100% - 32px); margin:16px; background:#c8960c; color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; }
+  .btn-submit { width: calc(100% - 32px); margin:16px; background:#c8960c; color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 4px 10px rgba(200,150,12,0.3);}
   .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
   .hide { display: none !important; }
+
+  /* กล่องแสดงผลคำนวณวันลา */
+  .calc-box { margin-top:15px; background:#eef2f6; padding:12px 15px; border-radius:10px; border-left:4px solid #c8960c; display:none; align-items:center; justify-content:space-between;}
+  .calc-box.show { display:flex; }
+  .calc-label { font-size:13px; font-weight:700; color:#1a3a6b;}
+  .calc-val { font-size:18px; font-weight:700; color:#EF4444;}
 </style>
 </head>
 <body>
@@ -50,12 +56,23 @@
     </select>
 
     <label>วันที่เริ่มต้นการลา</label>
-    <input type="date" id="startDate">
+    <input type="date" id="startDate" onchange="calworkday()">
+    
     <label>วันที่สิ้นสุดการลา</label>
-    <input type="date" id="endDate">
+    <input type="date" id="endDate" onchange="calworkday()">
 
     <label>ช่วงเวลา</label>
-    <select id="period"><option value="full">🌞 เต็มวัน</option><option value="morning">🌅 ช่วงเช้า</option><option value="afternoon">🌇 ช่วงบ่าย</option></select>
+    <select id="period" onchange="calworkday()">
+      <option value="full">🌞 เต็มวัน</option>
+      <option value="morning">🌅 ช่วงเช้า (0.5 วัน)</option>
+      <option value="afternoon">🌇 ช่วงบ่าย (0.5 วัน)</option>
+    </select>
+
+    <div class="calc-box" id="calcBox">
+      <div class="calc-label">📌 จำนวนวันลาที่เลือก:</div>
+      <div class="calc-val" id="displayDays">0 วัน</div>
+    </div>
+
     <label>เหตุผลการลา</label>
     <textarea id="reason" rows="3" placeholder="ระบุเหตุผลโดยย่อ..."></textarea>
   </div>
@@ -83,6 +100,57 @@
     liff.getProfile().then(p => { userId = p.userId; });
   });
 
+  // 🌟 ฟังก์ชันคำนวณวันลาบนหน้าจอ (ทำงานตอนผู้ใช้กดเปลี่ยนวันที่)
+  function calworkday() {
+    const s = document.getElementById('startDate').value;
+    let e = document.getElementById('endDate').value;
+    const p = document.getElementById('period').value;
+    
+    const calcBox = document.getElementById('calcBox');
+    const display = document.getElementById('displayDays');
+
+    if (!s) {
+      calcBox.classList.remove('show');
+      return;
+    }
+
+    if (!e) e = s; // ถ้ายังไม่เลือกวันสิ้นสุด ให้ถือว่าเป็นวันเดียวกับวันเริ่ม
+
+    const sDate = new Date(s);
+    const eDate = new Date(e);
+    sDate.setHours(0,0,0,0);
+    eDate.setHours(0,0,0,0);
+
+    // กรณีเลือกวันสิ้นสุดย้อนหลัง
+    if (eDate < sDate) {
+      calcBox.classList.add('show');
+      display.innerText = "วันที่ไม่ถูกต้อง!";
+      display.style.color = "#EF4444";
+      return;
+    }
+
+    display.style.color = "#EF4444"; // Reset color
+
+    // กรณีลากะเช้าหรือบ่าย
+    if (p === 'morning' || p === 'afternoon') {
+      calcBox.classList.add('show');
+      display.innerText = "0.5 วัน";
+      return;
+    }
+
+    // นับทุกวันรวมเสาร์อาทิตย์ (28 ถึง 28 = 1 วัน)
+    let count = 0;
+    let cur = new Date(sDate);
+    while (cur <= eDate) {
+      count++;
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    calcBox.classList.add('show');
+    display.innerText = count + " วัน";
+  }
+
+  // แปลงรูปแบบวันที่ส่งเข้า Database
   function formatToThaiDate(dateString) {
     if(!dateString) return "";
     const [y, m, d] = dateString.split('-');
@@ -95,6 +163,11 @@
     const eDateRaw = document.getElementById('endDate').value || sDateRaw;
 
     if(!sDateRaw) return alert("กรุณาระบุวันที่เริ่มต้น");
+
+    // ตรวจสอบความถูกต้องก่อนส่ง
+    if (new Date(eDateRaw) < new Date(sDateRaw)) {
+      return alert("วันที่สิ้นสุด ไม่สามารถน้อยกว่าวันที่เริ่มต้นได้ครับ");
+    }
 
     document.getElementById('loading').classList.remove('hide');
     document.getElementById('btnSubmit').disabled = true;
