@@ -1,28 +1,159 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>หน้าหลัก — ระบบลาออนไลน์</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="config.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Sarabun',sans-serif; background:#f4f7fb; color:#333; }
+  .app-container { max-width: 500px; margin: 0 auto; min-height: 100vh; background: #f4f7fb; position: relative; padding-bottom: 70px;}
+  .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50;}
+  .header img { height: 32px; border-radius: 4px; background:#fff; padding:2px;}
+  .profile-card { background:linear-gradient(135deg,#1a3a6b,#2a5298); margin:16px; border-radius:16px; padding:20px; color:#fff; display:flex; align-items:center; gap:15px; box-shadow:0 6px 16px rgba(26,58,107,0.2); }
+  .avatar { width:65px; height:65px; border-radius:50%; border:3px solid #e0e7ff; object-fit:cover; background:#ffffff30;}
+  .card { background:#fff; margin:16px; padding:20px; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
+  .card-title { font-size:16px; font-weight:700; color:#1a3a6b; margin-bottom:15px;}
+  
+  .bal-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
+  .bal-item { padding:14px; border-radius:12px; background:#fdfdfe; border:1px solid #eef2f6; display:flex; align-items:center; gap:12px;}
+  .bal-icon { font-size:26px; background:#e0e7ff; padding:10px; border-radius:10px;}
+  .bal-info { flex:1; }
+  .bal-name { font-size:13px; font-weight:700; color:#333; }
+  .bal-used { font-size:16px; font-weight:700; color:#EF4444; margin-top:2px;}
+  .bal-quota { font-size:11px; color:#6b7280; }
+
+  .btn-primary { display:block; text-align:center; background:#c8960c; color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; text-decoration:none; margin:16px; width:calc(100% - 32px); box-shadow:0 4px 10px rgba(200,150,12,0.3);}
+  
+  .history-item { padding:15px; border:1px solid #f0f0f0; border-radius:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; background:#fff;}
+  .badge { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:bold; }
+  .st-ok { background:#d1fae5; color:#065f46; } .st-pend { background:#fef3c7; color:#92400e; } .st-rej { background:#fee2e2; color:#991b1b; }
+  
+  .bottom-nav { position:fixed; bottom:0; width:100%; max-width:500px; background:#fff; display:flex; box-shadow:0 -2px 10px rgba(0,0,0,0.05); z-index:100;}
+  .nav-item { flex:1; text-align:center; padding:12px 0; color:#9ca3af; font-size:11px; cursor:pointer; font-weight:600; transition:0.3s;}
+  .nav-item.active { color:#1a3a6b; border-top:3px solid #1a3a6b; background:#f8fafc;}
+  .nav-icon { font-size:20px; display:block; margin-bottom:2px;}
+  
+  .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
+  .hide { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <div class="header">
+    <img src="https://www.coopkku.com/info/html/images/logo1.png" alt="Logo">
+    <div style="font-weight:700; font-size:16px; color:#fff;">ระบบลาออนไลน์</div>
+  </div>
+
+  <div id="loading" class="overlay">
+    <div style="font-size:40px; animation:bounce 0.6s infinite alternate;">⏳</div>
+    <h3 style="color:#1a3a6b; margin-top:10px;" id="loadingText">กำลังเตรียมระบบ...</h3>
+  </div>
+
+  <div id="pg-home">
+    <div class="profile-card">
+      <img id="uImg" src="https://via.placeholder.com/150" class="avatar">
+      <div>
+        <h2 id="uName" style="font-size:18px; margin-bottom:4px;">-</h2>
+        <p id="uDept" style="font-size:13px; opacity:0.8;">-</p>
+        <span style="display:inline-block; padding:3px 10px; background:#ffffff30; border-radius:15px; font-size:11px; margin-top:6px;">✅ สถานะปกติ</span>
+      </div>
+    </div>
+    <a href="leave-form.html" class="btn-primary">📝 ยื่นใบลาออนไลน์</a>
+    <div class="card">
+      <div class="card-title">📊 สรุปจำนวนวันลาที่ใช้ไป (ต่อปี)</div>
+      <div class="bal-grid" id="leaveGrid"></div>
+    </div>
+  </div>
+
+  <div id="pg-history" class="hide">
+    <div class="card">
+      <div class="card-title">📜 ประวัติการลาของฉัน</div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <div id="pg-approval" class="hide">
+    <div class="card" style="background:transparent; padding:0; box-shadow:none;">
+      <div class="card-title" style="padding:0 5px;">📝 รายการรอพิจารณาอนุมัติ</div>
+      <div id="approvalList"></div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-item active" id="nav-home" onclick="switchTab('home')"><span class="nav-icon">🏠</span>หน้าหลัก</div>
+    <div class="nav-item" id="nav-history" onclick="switchTab('history')"><span class="nav-icon">📜</span>ประวัติ</div>
+    <div class="nav-item hide" id="nav-approval" onclick="switchTab('approval')"><span class="nav-icon">✅</span>อนุมัติ</div>
+    <div class="nav-item hide" id="nav-report" onclick="window.location.href='report.html'"><span class="nav-icon">📈</span>รายงาน</div>
+  </div>
+</div>
+
 <script>
   let myUserId = '';
 
+  // 🌟 ดักจับ Error ภาพรวม ป้องกันหน้าจอขาวค้าง
+  window.onerror = function(msg, url, line) {
+    alert("เกิดข้อผิดพลาดในระบบ: " + msg + "\n(Line: " + line + ")");
+    document.getElementById('loading').classList.add('hide');
+  };
+
   async function callAPI(action, payloadData = {}) {
+    if (typeof AppConfig === 'undefined') throw new Error('ไม่พบไฟล์ config.js');
     const res = await fetch(AppConfig.GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
     const result = await res.json();
     if (result.status === 'success') return result.data;
     throw new Error(result.message || 'API Error');
   }
 
-  liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
-    if (!liff.isLoggedIn()) { liff.login(); return; }
-    liff.getProfile().then(p => { myUserId = p.userId; document.getElementById('uImg').src = p.pictureUrl || ''; loadDashboard(); });
-  });
+  // 🌟 การเริ่มต้นระบบ
+  window.onload = function() {
+    if (typeof AppConfig === 'undefined' || !AppConfig.LIFF_ID) {
+      alert("❌ ระบบไม่พร้อมใช้งาน: กรุณาตรวจสอบไฟล์ config.js");
+      document.getElementById('loadingText').innerText = "พบข้อผิดพลาด";
+      return;
+    }
 
-  // ... (ฟังก์ชัน loadDashboard และ switchTab คงเดิม) ...
+    liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
+      if (!liff.isLoggedIn()) { 
+        liff.login({ redirectUri: window.location.href }); 
+        return; 
+      }
+      liff.getProfile().then(p => { 
+        myUserId = p.userId; 
+        document.getElementById('uImg').src = p.pictureUrl || 'https://via.placeholder.com/150'; 
+        document.getElementById('loadingText').innerText = "กำลังโหลดข้อมูล...";
+        loadDashboard(); 
+      }).catch(err => {
+        alert("❌ ดึงข้อมูลโปรไฟล์ล้มเหลว: " + err.message);
+        document.getElementById('loading').classList.add('hide');
+      });
+    }).catch(err => {
+      alert("❌ LIFF Init Error: " + err.message);
+      document.getElementById('loading').classList.add('hide');
+    });
+  };
+
   function loadDashboard() {
     callAPI('getDashboardData', { lineUserId: myUserId }).then(data => {
       document.getElementById('loading').classList.add('hide');
-      if (!data || !data.employee || data.employee.status !== 'active') { window.location.replace('register.html'); return; }
+      
+      if (!data || !data.employee || data.employee.status !== 'active') { 
+        window.location.replace('register.html'); 
+        return; 
+      }
+      
       const emp = data.employee;
       document.getElementById('uName').innerText = emp.name;
       document.getElementById('uDept').innerText = emp.department + ' · ' + emp.position;
+      
+      // ปลดล็อกเมนูตามสิทธิ์
       if (data.canViewReport) document.getElementById('nav-report').classList.remove('hide');
       if (data.isApprover) document.getElementById('nav-approval').classList.remove('hide');
+
       let html = '';
       data.leaveConfig.forEach(lt => {
         const used = data.usedLeaves[lt.id] || 0;
@@ -30,22 +161,32 @@
         html += `<div class="bal-item"><div class="bal-icon">${lt.emoji}</div><div class="bal-info"><div class="bal-name">${lt.name}</div><div class="bal-used">ใช้ไป: ${used} ${typeof lt.quota === 'number' ? 'วัน' : ''}</div><div class="bal-quota">${quotaText}</div></div></div>`;
       });
       document.getElementById('leaveGrid').innerHTML = html;
-    }).catch(err => alert("Error: " + err.message));
+    }).catch(err => {
+      document.getElementById('loading').classList.add('hide');
+      alert("❌ โหลดข้อมูลล้มเหลว: " + err.message);
+    });
   }
 
   function switchTab(tab) {
-    document.getElementById('pg-home').classList.add('hide'); document.getElementById('pg-history').classList.add('hide'); document.getElementById('pg-approval').classList.add('hide');
-    document.getElementById('nav-home').classList.remove('active'); document.getElementById('nav-history').classList.remove('active'); document.getElementById('nav-approval').classList.remove('active');
-    document.getElementById('pg-'+tab).classList.remove('hide'); document.getElementById('nav-'+tab).classList.add('active');
+    document.getElementById('pg-home').classList.add('hide'); 
+    document.getElementById('pg-history').classList.add('hide'); 
+    document.getElementById('pg-approval').classList.add('hide');
+    
+    document.getElementById('nav-home').classList.remove('active'); 
+    document.getElementById('nav-history').classList.remove('active'); 
+    document.getElementById('nav-approval').classList.remove('active');
+
+    document.getElementById('pg-'+tab).classList.remove('hide'); 
+    document.getElementById('nav-'+tab).classList.add('active');
+    
     if(tab === 'history') loadHistory();
     if(tab === 'approval') loadApprovals();
   }
 
-  // 🌟 ฟังก์ชันโหลดประวัติที่เพิ่ม "สถานะการติดตามแบบ Timeline"
   function loadHistory() {
-    document.getElementById('historyList').innerHTML = '<div style="text-align:center; color:#666;">กำลังโหลด...</div>';
+    document.getElementById('historyList').innerHTML = '<div style="text-align:center; padding:20px; color:#666;">กำลังโหลด...</div>';
     callAPI('getLeavesByUser', { lineUserId: myUserId }).then(data => {
-      if(!data || data.length === 0) { document.getElementById('historyList').innerHTML = '<div style="text-align:center; color:#999;">ไม่มีประวัติ</div>'; return; }
+      if(!data || data.length === 0) { document.getElementById('historyList').innerHTML = '<div style="text-align:center; padding:20px; color:#999;">ยังไม่มีประวัติการลา</div>'; return; }
       
       callAPI('getDashboardData', { lineUserId: myUserId }).then(db => {
         const ln = {}; db.leaveConfig.forEach(lt => ln[lt.id] = lt.name);
@@ -53,27 +194,15 @@
         let html = '';
         data.forEach(r => {
           let statusUI = '';
-          // วาดหน้าตาสถานะแบบละเอียด
           if (r.status === 'approved') {
-            statusUI = `<div style="text-align:right;">
-                          <div style="color:#10B981; font-size:13px; font-weight:bold;">✅ อนุมัติแล้ว</div>
-                          <div style="font-size:11px; color:#555;">โดย ผจก. (${r.l2ApproverName})</div>
-                        </div>`;
+            statusUI = `<div style="text-align:right;"><div style="color:#10B981; font-size:13px; font-weight:bold;">✅ อนุมัติแล้ว</div><div style="font-size:11px; color:#555;">โดย ผจก. (${r.l2ApproverName})</div></div>`;
           } else if (r.status === 'rejected') {
             const by = r.l2ApproverName !== '-' ? r.l2ApproverName : (r.l1ApproverName !== '-' ? r.l1ApproverName : 'ระบบ');
-            statusUI = `<div style="text-align:right;">
-                          <div style="color:#EF4444; font-size:13px; font-weight:bold;">❌ ไม่อนุมัติ</div>
-                          <div style="font-size:11px; color:#555;">โดย: ${by}</div>
-                        </div>`;
+            statusUI = `<div style="text-align:right;"><div style="color:#EF4444; font-size:13px; font-weight:bold;">❌ ไม่อนุมัติ</div><div style="font-size:11px; color:#555;">โดย: ${by}</div></div>`;
           } else if (r.status === 'pending_supervisor') {
-            statusUI = `<div style="text-align:right;">
-                          <div style="color:#F59E0B; font-size:12px; font-weight:bold; background:#fffbeb; padding:4px 8px; border-radius:12px;">⏳ รอ ผช. อนุมัติ</div>
-                        </div>`;
+            statusUI = `<div style="text-align:right;"><div style="color:#F59E0B; font-size:12px; font-weight:bold; background:#fffbeb; padding:4px 8px; border-radius:12px;">⏳ รอ ผช. อนุมัติ</div></div>`;
           } else if (r.status === 'pending_manager') {
-            statusUI = `<div style="text-align:right;">
-                          <div style="color:#8B5CF6; font-size:12px; font-weight:bold; background:#f3e8ff; padding:4px 8px; border-radius:12px;">⏳ รอ ผจก. อนุมัติ</div>
-                          ${r.l1ApproverName !== '-' ? `<div style="font-size:11px; color:#10B981; margin-top:4px;">✓ ผ่าน ผช. (${r.l1ApproverName})</div>` : ''}
-                        </div>`;
+            statusUI = `<div style="text-align:right;"><div style="color:#8B5CF6; font-size:12px; font-weight:bold; background:#f3e8ff; padding:4px 8px; border-radius:12px;">⏳ รอ ผจก. อนุมัติ</div>${r.l1ApproverName !== '-' ? `<div style="font-size:11px; color:#10B981; margin-top:4px;">✓ ผ่าน ผช. (${r.l1ApproverName})</div>` : ''}</div>`;
           }
 
           html += `
@@ -87,15 +216,16 @@
         });
         document.getElementById('historyList').innerHTML = html;
       });
+    }).catch(err => {
+        document.getElementById('historyList').innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444;">เกิดข้อผิดพลาด: ${err.message}</div>`;
     });
   }
 
-  // 🌟 ฟังก์ชันโหลดรายการรออนุมัติ (ให้ L2 เห็นชื่อ L1 ที่อนุมัติมาด้วย)
   function loadApprovals() {
-    document.getElementById('approvalList').innerHTML = '<div style="text-align:center; color:#666;">กำลังค้นหารายการ...</div>';
+    document.getElementById('approvalList').innerHTML = '<div style="text-align:center; padding:20px; color:#666;">กำลังค้นหารายการ...</div>';
     callAPI('getPendingApprovals', { lineUserId: myUserId }).then(data => {
       if(!data || data.length === 0) { 
-        document.getElementById('approvalList').innerHTML = '<div style="text-align:center; padding:20px; color:#999;">🎉 ไม่มีคำขอลาที่รออนุมัติ</div>'; 
+        document.getElementById('approvalList').innerHTML = '<div style="text-align:center; padding:20px; background:#fff; border-radius:12px; color:#999;">🎉 ไม่มีคำขอลาที่รออนุมัติ</div>'; 
         return; 
       }
       
@@ -103,10 +233,9 @@
         const ln = {}; db.leaveConfig.forEach(lt => ln[lt.id] = lt.name);
         let html = '';
         data.forEach(r => {
-          // โชว์ว่าใครเซ็นผ่านมาแล้วบ้าง (เฉพาะตอนรอผู้จัดการ)
           let l1PassHtml = '';
           if (r.status === 'pending_manager' && r.l1ApproverName !== '-') {
-            l1PassHtml = `<div style="font-size:12px; color:#10B981; margin-top:6px; background:#d1fae5; display:inline-block; padding:2px 8px; border-radius:8px;">✓ ผ่านการพิจารณาเบื้องต้นโดย: ${r.l1ApproverName}</div>`;
+            l1PassHtml = `<div style="font-size:12px; color:#10B981; margin-top:6px; background:#d1fae5; display:inline-block; padding:2px 8px; border-radius:8px;">✓ ผ่านการพิจารณาขั้นต้นโดย: ${r.l1ApproverName}</div>`;
           }
 
           html += `
@@ -122,13 +251,15 @@
               ${l1PassHtml}
             </div>
             <div style="display:flex; gap:10px; width:100%;">
-              <button onclick="submitApproval('${r.requestId}', 'approved')" style="flex:1; padding:10px; background:#10B981; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">✅ อนุมัติ</button>
-              <button onclick="submitApproval('${r.requestId}', 'rejected')" style="flex:1; padding:10px; background:#EF4444; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">❌ ไม่อนุมัติ</button>
+              <button onclick="submitApproval('${r.requestId}', 'approved')" style="flex:1; padding:10px; background:#10B981; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer; box-shadow:0 2px 4px rgba(16,185,129,0.3);">✅ อนุมัติ</button>
+              <button onclick="submitApproval('${r.requestId}', 'rejected')" style="flex:1; padding:10px; background:#EF4444; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer; box-shadow:0 2px 4px rgba(239,68,68,0.3);">❌ ไม่อนุมัติ</button>
             </div>
           </div>`;
         });
         document.getElementById('approvalList').innerHTML = html;
       });
+    }).catch(err => {
+        document.getElementById('approvalList').innerHTML = `<div style="text-align:center; padding:20px; background:#fff; border-radius:12px; color:#ef4444;">เกิดข้อผิดพลาด: ${err.message}</div>`;
     });
   }
 
@@ -140,7 +271,9 @@
       if(!confirm('ยืนยันการ "อนุมัติ" รายการนี้ใช่หรือไม่?')) return;
     }
 
+    document.getElementById('loadingText').innerText = "กำลังบันทึก...";
     document.getElementById('loading').classList.remove('hide');
+    
     callAPI('processApprovalFromWeb', { 
       lineUserId: myUserId, 
       reqId: reqId, 
@@ -156,3 +289,5 @@
     });
   }
 </script>
+</body>
+</html>
