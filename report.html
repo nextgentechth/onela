@@ -4,8 +4,11 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>รายงานสรุปการใช้วันลา</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="config.js"></script>
+
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -13,7 +16,11 @@
   .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50;}
   .header img { height: 32px; border-radius: 4px; background:#fff; padding:2px;}
   .btn-back-header { background:none; border:none; color:#fff; font-size:24px; cursor:pointer;}
+  
   .report-container { padding:16px; max-width: 100%; margin: 0 auto;}
+  .filter-box { display:flex; align-items:center; gap:10px; margin-bottom:15px; background:#fff; padding:12px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05);}
+  .filter-box select { padding:8px 12px; border-radius:8px; border:1px solid #ccc; font-family:'Sarabun'; flex:1; outline:none; font-size:14px; font-weight:600; color:#1a3a6b;}
+  
   .table-wrapper { background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); overflow-x:auto; padding:10px; margin-bottom:15px;}
   table { width: 100%; border-collapse: collapse; min-width: 1300px; }
   th, td { border-bottom: 1px solid #eef2f6; padding: 12px 10px; text-align: center; font-size: 13px; }
@@ -21,11 +28,15 @@
   td:nth-child(2), th:nth-child(2) { text-align: left; position:sticky; left:0; background:#fff; z-index:10; font-weight:bold; box-shadow: 2px 0 5px rgba(0,0,0,0.05);}
   th:nth-child(2) { background:#f8fafc; z-index:11;}
   .highlight { color:#EF4444; font-weight:bold; }
+  
+  .btn-wrap { display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:40px; }
+  .btn-export { display:flex; justify-content:center; align-items:center; gap:8px; width:100%; color:#fff; border:none; border-radius:10px; padding:14px; font-size:15px; font-weight:700; cursor:pointer;}
+  .btn-excel { background:#10B981; box-shadow:0 4px 10px rgba(16,185,129,0.3); }
+  .btn-pdf { background:#EF4444; box-shadow:0 4px 10px rgba(239,68,68,0.3); }
+  .btn-img { background:#3B82F6; box-shadow:0 4px 10px rgba(59,130,246,0.3); }
+  
   .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
-  .btn-export { display:flex; justify-content:center; align-items:center; gap:8px; width:100%; background:#10B981; color:#fff; border:none; border-radius:10px; padding:14px; font-size:15px; font-weight:700; cursor:pointer; margin-bottom:10px;}
-  .btn-img { background:#3B82F6; }
-  .filter-box { display:flex; align-items:center; gap:10px; margin-bottom:15px; background:#fff; padding:12px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05);}
-  .filter-box select { padding:8px 12px; border-radius:8px; border:1px solid #ccc; font-family:'Sarabun'; flex:1; outline:none;}
+  .hide { display: none !important; }
 </style>
 </head>
 <body>
@@ -37,31 +48,28 @@
 
   <div class="report-container">
     <div class="filter-box">
-      <label style="font-weight:bold; color:#1a3a6b;">เลือกปีบัญชี:</label>
+      <label style="font-weight:bold; color:#555;">ปีบัญชี:</label>
       <select id="fySelect" onchange="changeFY()"></select>
     </div>
 
     <div class="table-wrapper" id="captureArea">
+      <h3 style="text-align:center; color:#1a3a6b; margin-bottom:10px; display:none;" id="pdfTitle">รายงานสรุปวันลาบุคลากร</h3>
       <table id="reportTable">
         <thead><tr id="tableHeader"></tr></thead>
         <tbody id="tableBody"></tbody>
       </table>
     </div>
-    <button class="btn-export" onclick="exportToCSV()">📥 ส่งออกเป็น Excel (CSV)</button>
-    <button class="btn-export btn-img" onclick="exportToImage()">📸 บันทึกเป็นรูปภาพ</button>
+
+    <div class="btn-wrap">
+      <button class="btn-export btn-excel" onclick="exportToExcel()">📥 ดาวน์โหลด Spreadsheet (Excel)</button>
+      <button class="btn-export btn-pdf" onclick="exportToPDF()">📄 ดาวน์โหลดเอกสาร PDF</button>
+      <button class="btn-export btn-img" onclick="exportToImage()">📸 บันทึกเป็นรูปภาพ</button>
+    </div>
   </div>
 
   <div id="loading" class="overlay">
     <div style="font-size:40px; animation:bounce 0.6s infinite alternate;">📈</div>
     <h3 style="color:#1a3a6b; margin-top:10px;">กำลังรวบรวมข้อมูล...</h3>
-  </div>
-
-  <div id="imageModal" class="overlay hide">
-    <div style="background:#fff; padding:20px; border-radius:12px; width:90%; max-height:90%; overflow:auto; text-align:center;">
-       <h3 style="margin-bottom:10px; color:#1a3a6b;">แตะค้างที่ภาพเพื่อบันทึก</h3>
-       <img id="generatedImg" src="" style="width:100%; border:1px solid #ccc; margin-bottom:15px;">
-       <button onclick="document.getElementById('imageModal').classList.add('hide')" style="padding:10px 20px; background:#ef4444; color:#fff; border:none; border-radius:8px;">ปิดหน้าต่าง</button>
-    </div>
   </div>
 
 <script>
@@ -86,31 +94,33 @@
       const reports = data.report;
       const currentFY = data.currentFY;
 
-      // สร้างตัวเลือกปีบัญชี (ทำครั้งแรกครั้งเดียว)
       const fySelect = document.getElementById('fySelect');
       if (fySelect.options.length === 0) {
         for (let y = currentFY - 2; y <= currentFY + 1; y++) {
           const opt = document.createElement('option');
-          opt.value = y;
-          opt.innerText = `ปี ${y} (1 ธ.ค. ${y-1} - 30 พ.ย. ${y})`;
+          opt.value = y; opt.innerText = `ปี ${y} (1 ธ.ค. ${y-1} - 30 พ.ย. ${y})`;
           if (y === currentFY) opt.selected = true;
           fySelect.appendChild(opt);
         }
       }
 
       let thHTML = `<th>ลำดับ</th> <th>ชื่อ - สกุล</th> <th>ฝ่าย/แผนก</th>`;
-      config.forEach(lt => thHTML += `<th>${lt.emoji} ${lt.name}</th>`);
+      config.forEach(lt => thHTML += `<th>${lt.name}</th>`);
       document.getElementById('tableHeader').innerHTML = thHTML;
 
       let trHTML = '';
-      reports.forEach(row => {
-        trHTML += `<tr><td>${row.no}</td><td>${row.name}</td><td>${row.department}</td>`;
-        config.forEach(lt => {
-          const used = row[lt.id];
-          trHTML += `<td class="${used > 0 ? 'highlight' : ''}">${used > 0 ? used : '-'}</td>`;
+      if(reports.length === 0) {
+        trHTML = `<tr><td colspan="${3 + config.length}">ไม่พบข้อมูลบุคลากร</td></tr>`;
+      } else {
+        reports.forEach(row => {
+          trHTML += `<tr><td>${row.no}</td><td>${row.name}</td><td>${row.department}</td>`;
+          config.forEach(lt => {
+            const used = row[lt.id];
+            trHTML += `<td class="${used > 0 ? 'highlight' : ''}">${used > 0 ? used : '-'}</td>`;
+          });
+          trHTML += `</tr>`;
         });
-        trHTML += `</tr>`;
-      });
+      }
       document.getElementById('tableBody').innerHTML = trHTML;
     }).catch(err => { alert("❌ " + err.message); window.location.replace('index.html'); });
   }
@@ -120,41 +130,66 @@
     loadReport(myUserId, fy);
   }
 
-  function exportToCSV() {
-    const table = document.getElementById('reportTable');
-    let csv = [];
-    for (let i = 0, row; row = table.rows[i]; i++) {
-      let col = [];
-      for (let j = 0, cell; cell = row.cells[j]; j++) col.push('"' + cell.innerText.replace(/"/g, '""') + '"');
-      csv.push(col.join(","));
+  // 🌟 ฟังก์ชันบายพาส LINE Browser
+  function checkLIFFAndDownload(actionFunction) {
+    if (liff.isInClient()) {
+      alert('⚠️ เบราว์เซอร์ของ LINE ไม่รองรับการดาวน์โหลดไฟล์\n\nระบบกำลังเปิดหน้าเว็บนี้ในเบราว์เซอร์ปกติ (Safari/Chrome) ให้คุณกดดาวน์โหลดจากที่นั่นได้เลยครับ');
+      liff.openWindow({ url: window.location.href, external: true });
+    } else {
+      actionFunction();
     }
-    const blob = new Blob(["\uFEFF" + csv.join("\n")], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `Report_Leave_FY${document.getElementById('fySelect').value}.csv`;
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
   }
 
-  function exportToImage() {
-    document.getElementById('loading').classList.remove('hide');
-    const tableWrap = document.getElementById('captureArea');
-    const originalOverflow = tableWrap.style.overflowX;
-    tableWrap.style.overflowX = 'visible';
-    
-    html2canvas(document.getElementById('reportTable'), { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
-      tableWrap.style.overflowX = originalOverflow;
-      document.getElementById('loading').classList.add('hide');
-      const imgUrl = canvas.toDataURL("image/png");
+  // 1. Export เป็น Excel (.xlsx) ด้วย SheetJS
+  function exportToExcel() {
+    checkLIFFAndDownload(() => {
+      const table = document.getElementById('reportTable');
+      const wb = XLSX.utils.table_to_book(table, {sheet: "Report"});
+      XLSX.writeFile(wb, `Leave_Report_FY${document.getElementById('fySelect').value}.xlsx`);
+    });
+  }
+
+  // 2. Export เป็น PDF ด้วย html2pdf
+  function exportToPDF() {
+    checkLIFFAndDownload(() => {
+      document.getElementById('loading').classList.remove('hide');
+      document.getElementById('pdfTitle').style.display = 'block'; // โชว์หัวข้อเฉพาะตอนปริ้น
+      const element = document.getElementById('captureArea');
       
-      if (liff.isInClient()) {
-        document.getElementById('generatedImg').src = imgUrl;
-        document.getElementById('imageModal').classList.remove('hide');
-      } else {
+      const opt = {
+        margin: 0.2,
+        filename: `Leave_Report_FY${document.getElementById('fySelect').value}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' } // แนวนอน
+      };
+
+      html2pdf().set(opt).from(element).save().then(() => {
+        document.getElementById('loading').classList.add('hide');
+        document.getElementById('pdfTitle').style.display = 'none';
+      });
+    });
+  }
+
+  // 3. Export เป็นรูปภาพ ด้วย html2canvas
+  function exportToImage() {
+    checkLIFFAndDownload(() => {
+      document.getElementById('loading').classList.remove('hide');
+      document.getElementById('pdfTitle').style.display = 'block';
+      const tableWrap = document.getElementById('captureArea');
+      const originalOverflow = tableWrap.style.overflowX;
+      tableWrap.style.overflowX = 'visible'; // ถ่ายให้เห็นตารางทั้งหมด
+      
+      html2canvas(document.getElementById('reportTable'), { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+        tableWrap.style.overflowX = originalOverflow;
+        document.getElementById('pdfTitle').style.display = 'none';
+        document.getElementById('loading').classList.add('hide');
+        
         const link = document.createElement('a');
-        link.download = `Report_Leave_FY${document.getElementById('fySelect').value}.png`;
-        link.href = imgUrl; link.click();
-      }
+        link.download = `Leave_Report_FY${document.getElementById('fySelect').value}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      });
     });
   }
 </script>
