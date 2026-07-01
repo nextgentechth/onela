@@ -15,18 +15,17 @@
   .btn-back-header { background:none; border:none; color:#fff; font-size:24px; cursor:pointer;}
   .report-container { padding:16px; max-width: 100%; margin: 0 auto;}
   .table-wrapper { background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); overflow-x:auto; padding:10px; margin-bottom:15px;}
-  
   table { width: 100%; border-collapse: collapse; min-width: 1300px; }
   th, td { border-bottom: 1px solid #eef2f6; padding: 12px 10px; text-align: center; font-size: 13px; }
   th { background: #f8fafc; color: #1a3a6b; font-weight: 700; white-space: nowrap; }
   td:nth-child(2), th:nth-child(2) { text-align: left; position:sticky; left:0; background:#fff; z-index:10; font-weight:bold; box-shadow: 2px 0 5px rgba(0,0,0,0.05);}
   th:nth-child(2) { background:#f8fafc; z-index:11;}
-  
   .highlight { color:#EF4444; font-weight:bold; }
   .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
-  
   .btn-export { display:flex; justify-content:center; align-items:center; gap:8px; width:100%; background:#10B981; color:#fff; border:none; border-radius:10px; padding:14px; font-size:15px; font-weight:700; cursor:pointer; margin-bottom:10px;}
   .btn-img { background:#3B82F6; }
+  .filter-box { display:flex; align-items:center; gap:10px; margin-bottom:15px; background:#fff; padding:12px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05);}
+  .filter-box select { padding:8px 12px; border-radius:8px; border:1px solid #ccc; font-family:'Sarabun'; flex:1; outline:none;}
 </style>
 </head>
 <body>
@@ -37,15 +36,17 @@
   </div>
 
   <div class="report-container">
-    <div style="margin-bottom:10px; color:#555; font-size:13px;">* แสดง <b>"จำนวนวันลาที่ใช้ไป"</b> ของบุคลากรทั้งหมด</div>
-    
+    <div class="filter-box">
+      <label style="font-weight:bold; color:#1a3a6b;">เลือกปีบัญชี:</label>
+      <select id="fySelect" onchange="changeFY()"></select>
+    </div>
+
     <div class="table-wrapper" id="captureArea">
       <table id="reportTable">
         <thead><tr id="tableHeader"></tr></thead>
         <tbody id="tableBody"></tbody>
       </table>
     </div>
-
     <button class="btn-export" onclick="exportToCSV()">📥 ส่งออกเป็น Excel (CSV)</button>
     <button class="btn-export btn-img" onclick="exportToImage()">📸 บันทึกเป็นรูปภาพ</button>
   </div>
@@ -64,6 +65,7 @@
   </div>
 
 <script>
+  let myUserId = '';
   async function callAPI(action, payloadData = {}) {
     const res = await fetch(AppConfig.GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
     const result = await res.json();
@@ -73,14 +75,28 @@
 
   liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
     if (!liff.isLoggedIn()) { liff.login(); return; }
-    liff.getProfile().then(p => loadReport(p.userId));
+    liff.getProfile().then(p => { myUserId = p.userId; loadReport(myUserId); });
   });
 
-  function loadReport(userId) {
-    callAPI('getReportData', { lineUserId: userId }).then(data => {
-      document.getElementById('loading').style.display = 'none';
+  function loadReport(userId, fy = null) {
+    document.getElementById('loading').classList.remove('hide');
+    callAPI('getReportData', { lineUserId: userId, fy: fy }).then(data => {
+      document.getElementById('loading').classList.add('hide');
       const config = data.leaveConfig;
       const reports = data.report;
+      const currentFY = data.currentFY;
+
+      // สร้างตัวเลือกปีบัญชี (ทำครั้งแรกครั้งเดียว)
+      const fySelect = document.getElementById('fySelect');
+      if (fySelect.options.length === 0) {
+        for (let y = currentFY - 2; y <= currentFY + 1; y++) {
+          const opt = document.createElement('option');
+          opt.value = y;
+          opt.innerText = `ปี ${y} (1 ธ.ค. ${y-1} - 30 พ.ย. ${y})`;
+          if (y === currentFY) opt.selected = true;
+          fySelect.appendChild(opt);
+        }
+      }
 
       let thHTML = `<th>ลำดับ</th> <th>ชื่อ - สกุล</th> <th>ฝ่าย/แผนก</th>`;
       config.forEach(lt => thHTML += `<th>${lt.emoji} ${lt.name}</th>`);
@@ -96,13 +112,14 @@
         trHTML += `</tr>`;
       });
       document.getElementById('tableBody').innerHTML = trHTML;
-    }).catch(err => {
-      alert("❌ คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (" + err.message + ")");
-      window.location.replace('index.html');
-    });
+    }).catch(err => { alert("❌ " + err.message); window.location.replace('index.html'); });
   }
 
-  // 1. ฟังก์ชันส่งออกเป็น Excel (ด้วย BOM สำหรับภาษาไทย)
+  function changeFY() {
+    const fy = document.getElementById('fySelect').value;
+    loadReport(myUserId, fy);
+  }
+
   function exportToCSV() {
     const table = document.getElementById('reportTable');
     let csv = [];
@@ -111,47 +128,32 @@
       for (let j = 0, cell; cell = row.cells[j]; j++) col.push('"' + cell.innerText.replace(/"/g, '""') + '"');
       csv.push(col.join(","));
     }
-    const csvContent = "\uFEFF" + csv.join("\n");
-    
-    // สำหรับมือถือ/LIFF บางรุ่นที่โหลดตรงๆไม่ได้
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(["\uFEFF" + csv.join("\n")], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "Report_Leave.csv");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Report_Leave_FY${document.getElementById('fySelect').value}.csv`;
     link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    alert("✅ สั่งดาวน์โหลด Excel (CSV) เรียบร้อยแล้ว (หากเปิดในแอป LINE ให้กดเปิดในเบราว์เซอร์ปกติแทน)");
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
   }
 
-  // 2. ฟังก์ชันส่งออกเป็นรูปภาพ (Screenshot)
   function exportToImage() {
     document.getElementById('loading').classList.remove('hide');
     const tableWrap = document.getElementById('captureArea');
     const originalOverflow = tableWrap.style.overflowX;
-    
-    // ขยายเฟรมเพื่อให้ถ่ายติดทุกคอลัมน์
     tableWrap.style.overflowX = 'visible';
     
     html2canvas(document.getElementById('reportTable'), { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
       tableWrap.style.overflowX = originalOverflow;
       document.getElementById('loading').classList.add('hide');
-      
       const imgUrl = canvas.toDataURL("image/png");
       
       if (liff.isInClient()) {
-        // บนมือถือโชว์ Modal ให้กดค้างเซฟ
         document.getElementById('generatedImg').src = imgUrl;
         document.getElementById('imageModal').classList.remove('hide');
       } else {
-        // บน PC โหลดลงเครื่องได้เลย
         const link = document.createElement('a');
-        link.download = 'Report_Leave.png';
-        link.href = imgUrl;
-        link.click();
+        link.download = `Report_Leave_FY${document.getElementById('fySelect').value}.png`;
+        link.href = imgUrl; link.click();
       }
     });
   }
