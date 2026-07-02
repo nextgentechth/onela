@@ -22,7 +22,7 @@
   .filter-box select { padding:8px 12px; border-radius:8px; border:1px solid #ccc; font-family:'Sarabun'; flex:1; outline:none; font-size:14px; font-weight:600; color:#1a3a6b;}
   
   .table-wrapper { background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); overflow-x:auto; padding:10px; margin-bottom:15px;}
-  table { width: 100%; border-collapse: collapse; min-width: 1300px; }
+  table { width: 100%; border-collapse: collapse; min-width: 800px; } /* ปรับความกว้างให้ยืดหยุ่นขึ้น */
   th, td { border-bottom: 1px solid #eef2f6; padding: 12px 10px; text-align: center; font-size: 13px; }
   th { background: #f8fafc; color: #1a3a6b; font-weight: 700; white-space: nowrap; }
   td:nth-child(2), th:nth-child(2) { text-align: left; position:sticky; left:0; background:#fff; z-index:10; font-weight:bold; box-shadow: 2px 0 5px rgba(0,0,0,0.05);}
@@ -38,7 +38,6 @@
   .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
   .hide { display: none !important; }
 
-  /* แจ้งเตือนเมื่อเปิดผ่านเบราว์เซอร์นอก */
   #autoDownloadNotice { display:none; padding:20px; background:#d1fae5; color:#065f46; border-radius:12px; text-align:center; font-weight:bold; margin-bottom:15px; border:2px solid #10b981; }
 </style>
 </head>
@@ -91,13 +90,11 @@
     throw new Error(result.message || 'API Error');
   }
 
-  // 🌟 จุดเริ่มต้น (ระบบเช็ค Magic Link ก่อน)
   window.onload = function() {
     const urlParams = new URLSearchParams(window.location.search);
     const exportToken = urlParams.get('token');
 
     if (exportToken) {
-      // 🚀 กรณีที่ 1: เปิดผ่านเบราว์เซอร์นอกด้วย Magic Link
       try {
         const decoded = atob(exportToken).split('|');
         myUserId = decoded[0];
@@ -110,20 +107,17 @@
           return;
         }
 
-        // ซ่อน UI ที่ไม่จำเป็นทิ้ง
         document.getElementById('btnBack').style.display = 'none';
         document.getElementById('filterArea').style.display = 'none';
         document.getElementById('btnArea').style.display = 'none';
         document.getElementById('autoDownloadNotice').style.display = 'block';
         document.getElementById('loadingText').innerText = "กำลังสร้างไฟล์อัตโนมัติ...";
         
-        // โหลดข้อมูลและสั่ง Export ทันที
         loadReport(myUserId, fy, actionType);
       } catch(e) {
         alert('⚠️ ลิงก์ไม่ถูกต้อง หรือถูกแทรกแซง');
       }
     } else {
-      // 🚀 กรณีที่ 2: เปิดปกติผ่านแอป LINE
       liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
         if (!liff.isLoggedIn()) { liff.login(); return; }
         liff.getProfile().then(p => { myUserId = p.userId; loadReport(myUserId); });
@@ -135,7 +129,8 @@
     document.getElementById('loading').classList.remove('hide');
     callAPI('getReportData', { lineUserId: userId, fy: fy }).then(data => {
       document.getElementById('loading').classList.add('hide');
-      const config = data.leaveConfig;
+      
+      const config = data.leaveConfig; // 🌟 คอลัมน์ที่ผ่านการกรอง (เฉพาะที่มีคนลาจริง)
       const reports = data.report;
       const currentFY = data.currentFY;
 
@@ -149,26 +144,35 @@
         }
       }
 
+      // 🌟 สร้างหัวตารางแบบ Dynamic
       let thHTML = `<th>ลำดับ</th> <th>ชื่อ - สกุล</th> <th>ฝ่าย/แผนก</th>`;
-      config.forEach(lt => thHTML += `<th>${lt.name}</th>`);
+      if (config.length > 0) {
+        config.forEach(lt => thHTML += `<th>${lt.name}</th>`);
+      } else {
+        thHTML += `<th style="color:#888;">ข้อมูลการใช้วันลา</th>`;
+      }
       document.getElementById('tableHeader').innerHTML = thHTML;
 
+      // 🌟 สร้างข้อมูลตารางแบบ Dynamic
       let trHTML = '';
       if(reports.length === 0) {
-        trHTML = `<tr><td colspan="${3 + config.length}">ไม่พบข้อมูลบุคลากร</td></tr>`;
+        trHTML = `<tr><td colspan="${3 + (config.length > 0 ? config.length : 1)}">ไม่พบข้อมูลบุคลากร</td></tr>`;
       } else {
         reports.forEach(row => {
           trHTML += `<tr><td>${row.no}</td><td>${row.name}</td><td>${row.department}</td>`;
-          config.forEach(lt => {
-            const used = row[lt.id];
-            trHTML += `<td class="${used > 0 ? 'highlight' : ''}">${used > 0 ? used : '-'}</td>`;
-          });
+          if (config.length > 0) {
+            config.forEach(lt => {
+              const used = row[lt.id];
+              trHTML += `<td class="${used > 0 ? 'highlight' : ''}">${used > 0 ? used : '-'}</td>`;
+            });
+          } else {
+            trHTML += `<td style="color:#ccc;">- ยังไม่มีการใช้วันลาในปีนี้ -</td>`;
+          }
           trHTML += `</tr>`;
         });
       }
       document.getElementById('tableBody').innerHTML = trHTML;
 
-      // 🌟 หากมีคำสั่ง Auto Export ให้หน่วงเวลาให้เบราว์เซอร์วาดตารางเสร็จก่อน แล้วกดโหลด
       if (autoExportAction) {
         setTimeout(() => {
           if (autoExportAction === 'excel') exportToExcel(true);
@@ -185,31 +189,23 @@
     loadReport(myUserId, fy);
   }
 
-  // 🌟 ฟังก์ชันสร้าง Magic Link และเปิด Safari/Chrome
   function triggerExport(action) {
     if (liff.isInClient()) {
       const fy = document.getElementById('fySelect').value;
-      const expireTime = Date.now() + (5 * 60 * 1000); // หมดอายุใน 5 นาที
-      
-      // เข้ารหัสข้อมูลเป็น Token
+      const expireTime = Date.now() + (5 * 60 * 1000); 
       const rawString = `${myUserId}|${expireTime}|${action}|${fy}`;
-      const token = btoa(rawString); // เข้ารหัสเป็น Base64
-      
-      // ดึง URL ปัจจุบันมาต่อด้วย Token
+      const token = btoa(rawString); 
       const baseUrl = window.location.href.split('?')[0];
       const exportUrl = `${baseUrl}?token=${token}`;
 
       alert('🚀 ระบบจะทำการเปิดเบราว์เซอร์ภายนอกเพื่อเริ่มดาวน์โหลดไฟล์ให้อัตโนมัติครับ');
       liff.openWindow({ url: exportUrl, external: true });
     } else {
-      // ถ้าเปิดผ่าน PC หรือ Safari อยู่แล้ว ให้โหลดได้เลย
       if (action === 'excel') exportToExcel();
       if (action === 'pdf') exportToPDF();
       if (action === 'img') exportToImage();
     }
   }
-
-  // ---- ฟังก์ชันการ Export ทั้ง 3 รูปแบบ (ทำงานเบื้องหลังเงียบๆ) ----
 
   function exportToExcel() {
     const table = document.getElementById('reportTable');
