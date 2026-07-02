@@ -37,17 +37,26 @@
   
   .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
   .hide { display: none !important; }
+
+  /* แจ้งเตือนเมื่อเปิดผ่านเบราว์เซอร์นอก */
+  #autoDownloadNotice { display:none; padding:20px; background:#d1fae5; color:#065f46; border-radius:12px; text-align:center; font-weight:bold; margin-bottom:15px; border:2px solid #10b981; }
 </style>
 </head>
 <body>
   <div class="header">
-    <button class="btn-back-header" onclick="window.location.href='index.html'">‹</button>
+    <button class="btn-back-header" onclick="window.location.href='index.html'" id="btnBack">‹</button>
     <img src="https://www.coopkku.com/info/html/images/logo1.png" alt="Logo">
     <div style="font-weight:700; font-size:16px;">รายงานสรุปวันลา</div>
   </div>
 
   <div class="report-container">
-    <div class="filter-box">
+    
+    <div id="autoDownloadNotice">
+      🎉 ระบบกำลังสร้างไฟล์และดาวน์โหลดอัตโนมัติ<br>
+      <span style="font-size:12px; font-weight:normal;">(หากดาวน์โหลดเสร็จแล้ว สามารถปิดหน้าต่างนี้ได้เลยครับ)</span>
+    </div>
+
+    <div class="filter-box" id="filterArea">
       <label style="font-weight:bold; color:#555;">ปีบัญชี:</label>
       <select id="fySelect" onchange="changeFY()"></select>
     </div>
@@ -60,20 +69,21 @@
       </table>
     </div>
 
-    <div class="btn-wrap">
-      <button class="btn-export btn-excel" onclick="exportToExcel()">📥 ดาวน์โหลด Spreadsheet (Excel)</button>
-      <button class="btn-export btn-pdf" onclick="exportToPDF()">📄 ดาวน์โหลดเอกสาร PDF</button>
-      <button class="btn-export btn-img" onclick="exportToImage()">📸 บันทึกเป็นรูปภาพ</button>
+    <div class="btn-wrap" id="btnArea">
+      <button class="btn-export btn-excel" onclick="triggerExport('excel')">📥 ดาวน์โหลด Spreadsheet (Excel)</button>
+      <button class="btn-export btn-pdf" onclick="triggerExport('pdf')">📄 ดาวน์โหลดเอกสาร PDF</button>
+      <button class="btn-export btn-img" onclick="triggerExport('img')">📸 บันทึกเป็นรูปภาพ</button>
     </div>
   </div>
 
   <div id="loading" class="overlay">
     <div style="font-size:40px; animation:bounce 0.6s infinite alternate;">📈</div>
-    <h3 style="color:#1a3a6b; margin-top:10px;">กำลังรวบรวมข้อมูล...</h3>
+    <h3 style="color:#1a3a6b; margin-top:10px;" id="loadingText">กำลังรวบรวมข้อมูล...</h3>
   </div>
 
 <script>
   let myUserId = '';
+  
   async function callAPI(action, payloadData = {}) {
     const res = await fetch(AppConfig.GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
     const result = await res.json();
@@ -81,12 +91,47 @@
     throw new Error(result.message || 'API Error');
   }
 
-  liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
-    if (!liff.isLoggedIn()) { liff.login(); return; }
-    liff.getProfile().then(p => { myUserId = p.userId; loadReport(myUserId); });
-  });
+  // 🌟 จุดเริ่มต้น (ระบบเช็ค Magic Link ก่อน)
+  window.onload = function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const exportToken = urlParams.get('token');
 
-  function loadReport(userId, fy = null) {
+    if (exportToken) {
+      // 🚀 กรณีที่ 1: เปิดผ่านเบราว์เซอร์นอกด้วย Magic Link
+      try {
+        const decoded = atob(exportToken).split('|');
+        myUserId = decoded[0];
+        const expTime = parseInt(decoded[1]);
+        const actionType = decoded[2];
+        const fy = decoded[3];
+
+        if (Date.now() > expTime) {
+          alert('⚠️ ลิงก์ดาวน์โหลดหมดอายุแล้ว (เกิน 5 นาที)\nกรุณากลับไปกดปุ่มดาวน์โหลดใหม่ในแอป LINE ครับ');
+          return;
+        }
+
+        // ซ่อน UI ที่ไม่จำเป็นทิ้ง
+        document.getElementById('btnBack').style.display = 'none';
+        document.getElementById('filterArea').style.display = 'none';
+        document.getElementById('btnArea').style.display = 'none';
+        document.getElementById('autoDownloadNotice').style.display = 'block';
+        document.getElementById('loadingText').innerText = "กำลังสร้างไฟล์อัตโนมัติ...";
+        
+        // โหลดข้อมูลและสั่ง Export ทันที
+        loadReport(myUserId, fy, actionType);
+      } catch(e) {
+        alert('⚠️ ลิงก์ไม่ถูกต้อง หรือถูกแทรกแซง');
+      }
+    } else {
+      // 🚀 กรณีที่ 2: เปิดปกติผ่านแอป LINE
+      liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
+        if (!liff.isLoggedIn()) { liff.login(); return; }
+        liff.getProfile().then(p => { myUserId = p.userId; loadReport(myUserId); });
+      });
+    }
+  };
+
+  function loadReport(userId, fy = null, autoExportAction = null) {
     document.getElementById('loading').classList.remove('hide');
     callAPI('getReportData', { lineUserId: userId, fy: fy }).then(data => {
       document.getElementById('loading').classList.add('hide');
@@ -99,7 +144,7 @@
         for (let y = currentFY - 2; y <= currentFY + 1; y++) {
           const opt = document.createElement('option');
           opt.value = y; opt.innerText = `ปี ${y} (1 ธ.ค. ${y-1} - 30 พ.ย. ${y})`;
-          if (y === currentFY) opt.selected = true;
+          if (y === Number(fy || currentFY)) opt.selected = true;
           fySelect.appendChild(opt);
         }
       }
@@ -122,7 +167,17 @@
         });
       }
       document.getElementById('tableBody').innerHTML = trHTML;
-    }).catch(err => { alert("❌ " + err.message); window.location.replace('index.html'); });
+
+      // 🌟 หากมีคำสั่ง Auto Export ให้หน่วงเวลาให้เบราว์เซอร์วาดตารางเสร็จก่อน แล้วกดโหลด
+      if (autoExportAction) {
+        setTimeout(() => {
+          if (autoExportAction === 'excel') exportToExcel(true);
+          if (autoExportAction === 'pdf') exportToPDF(true);
+          if (autoExportAction === 'img') exportToImage(true);
+        }, 800); 
+      }
+
+    }).catch(err => { alert("❌ " + err.message); if(!autoExportAction) window.location.replace('index.html'); });
   }
 
   function changeFY() {
@@ -130,66 +185,76 @@
     loadReport(myUserId, fy);
   }
 
-  // 🌟 ฟังก์ชันบายพาส LINE Browser
-  function checkLIFFAndDownload(actionFunction) {
+  // 🌟 ฟังก์ชันสร้าง Magic Link และเปิด Safari/Chrome
+  function triggerExport(action) {
     if (liff.isInClient()) {
-      alert('⚠️ เบราว์เซอร์ของ LINE ไม่รองรับการดาวน์โหลดไฟล์\n\nระบบกำลังเปิดหน้าเว็บนี้ในเบราว์เซอร์ปกติ (Safari/Chrome) ให้คุณกดดาวน์โหลดจากที่นั่นได้เลยครับ');
-      liff.openWindow({ url: window.location.href, external: true });
+      const fy = document.getElementById('fySelect').value;
+      const expireTime = Date.now() + (5 * 60 * 1000); // หมดอายุใน 5 นาที
+      
+      // เข้ารหัสข้อมูลเป็น Token
+      const rawString = `${myUserId}|${expireTime}|${action}|${fy}`;
+      const token = btoa(rawString); // เข้ารหัสเป็น Base64
+      
+      // ดึง URL ปัจจุบันมาต่อด้วย Token
+      const baseUrl = window.location.href.split('?')[0];
+      const exportUrl = `${baseUrl}?token=${token}`;
+
+      alert('🚀 ระบบจะทำการเปิดเบราว์เซอร์ภายนอกเพื่อเริ่มดาวน์โหลดไฟล์ให้อัตโนมัติครับ');
+      liff.openWindow({ url: exportUrl, external: true });
     } else {
-      actionFunction();
+      // ถ้าเปิดผ่าน PC หรือ Safari อยู่แล้ว ให้โหลดได้เลย
+      if (action === 'excel') exportToExcel();
+      if (action === 'pdf') exportToPDF();
+      if (action === 'img') exportToImage();
     }
   }
 
-  // 1. Export เป็น Excel (.xlsx) ด้วย SheetJS
+  // ---- ฟังก์ชันการ Export ทั้ง 3 รูปแบบ (ทำงานเบื้องหลังเงียบๆ) ----
+
   function exportToExcel() {
-    checkLIFFAndDownload(() => {
-      const table = document.getElementById('reportTable');
-      const wb = XLSX.utils.table_to_book(table, {sheet: "Report"});
-      XLSX.writeFile(wb, `Leave_Report_FY${document.getElementById('fySelect').value}.xlsx`);
-    });
+    const table = document.getElementById('reportTable');
+    const wb = XLSX.utils.table_to_book(table, {sheet: "Report"});
+    const fy = document.getElementById('fySelect').value;
+    XLSX.writeFile(wb, `Leave_Report_FY${fy}.xlsx`);
   }
 
-  // 2. Export เป็น PDF ด้วย html2pdf
   function exportToPDF() {
-    checkLIFFAndDownload(() => {
-      document.getElementById('loading').classList.remove('hide');
-      document.getElementById('pdfTitle').style.display = 'block'; // โชว์หัวข้อเฉพาะตอนปริ้น
-      const element = document.getElementById('captureArea');
-      
-      const opt = {
-        margin: 0.2,
-        filename: `Leave_Report_FY${document.getElementById('fySelect').value}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' } // แนวนอน
-      };
+    document.getElementById('loadingText').innerText = "กำลังสร้าง PDF...";
+    document.getElementById('loading').classList.remove('hide');
+    document.getElementById('pdfTitle').style.display = 'block'; 
+    const element = document.getElementById('captureArea');
+    const fy = document.getElementById('fySelect').value;
+    
+    const opt = {
+      margin: 0.2, filename: `Leave_Report_FY${fy}.pdf`, image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+    };
 
-      html2pdf().set(opt).from(element).save().then(() => {
-        document.getElementById('loading').classList.add('hide');
-        document.getElementById('pdfTitle').style.display = 'none';
-      });
+    html2pdf().set(opt).from(element).save().then(() => {
+      document.getElementById('loading').classList.add('hide');
+      document.getElementById('pdfTitle').style.display = 'none';
     });
   }
 
-  // 3. Export เป็นรูปภาพ ด้วย html2canvas
   function exportToImage() {
-    checkLIFFAndDownload(() => {
-      document.getElementById('loading').classList.remove('hide');
-      document.getElementById('pdfTitle').style.display = 'block';
-      const tableWrap = document.getElementById('captureArea');
-      const originalOverflow = tableWrap.style.overflowX;
-      tableWrap.style.overflowX = 'visible'; // ถ่ายให้เห็นตารางทั้งหมด
+    document.getElementById('loadingText').innerText = "กำลังประมวลผลรูปภาพ...";
+    document.getElementById('loading').classList.remove('hide');
+    document.getElementById('pdfTitle').style.display = 'block';
+    
+    const tableWrap = document.getElementById('captureArea');
+    const fy = document.getElementById('fySelect').value;
+    const originalOverflow = tableWrap.style.overflowX;
+    tableWrap.style.overflowX = 'visible'; 
+    
+    html2canvas(document.getElementById('reportTable'), { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+      tableWrap.style.overflowX = originalOverflow;
+      document.getElementById('pdfTitle').style.display = 'none';
+      document.getElementById('loading').classList.add('hide');
       
-      html2canvas(document.getElementById('reportTable'), { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
-        tableWrap.style.overflowX = originalOverflow;
-        document.getElementById('pdfTitle').style.display = 'none';
-        document.getElementById('loading').classList.add('hide');
-        
-        const link = document.createElement('a');
-        link.download = `Leave_Report_FY${document.getElementById('fySelect').value}.png`;
-        link.href = canvas.toDataURL("image/png");
-        link.click();
-      });
+      const link = document.createElement('a');
+      link.download = `Leave_Report_FY${fy}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
     });
   }
 </script>
