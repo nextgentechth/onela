@@ -43,10 +43,11 @@
   .history-item { padding:16px; border:none; border-radius:16px; margin-bottom:12px; display:flex; flex-direction:column; gap:10px; background:#fff; box-shadow:0 4px 6px -1px rgba(0,0,0,0.03);}
   .hist-top { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px dashed #e2e8f0; padding-bottom:10px;}
   
-  .bottom-nav { position:fixed; bottom:0; width:100%; max-width:500px; background:#fff; display:flex; box-shadow:0 -4px 12px rgba(0,0,0,0.05); z-index:100;}
-  .nav-item { flex:1; text-align:center; padding:12px 0; color:#9ca3af; font-size:11px; cursor:pointer; font-weight:600; transition:0.3s;}
+  /* รองรับเมนูใหม่ 5 เมนู */
+  .bottom-nav { position:fixed; bottom:0; width:100%; max-width:500px; background:#fff; display:flex; box-shadow:0 -4px 12px rgba(0,0,0,0.05); z-index:100; overflow-x:auto;}
+  .nav-item { flex:1; min-width:65px; text-align:center; padding:12px 0; color:#9ca3af; font-size:10px; cursor:pointer; font-weight:600; transition:0.3s;}
   .nav-item.active { color:#1a3a6b; border-top:3px solid #1a3a6b; background:#f8fafc;}
-  .nav-icon { font-size:20px; display:block; margin-bottom:2px;}
+  .nav-icon { font-size:18px; display:block; margin-bottom:2px;}
   
   .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
   .hide { display: none !important; }
@@ -64,6 +65,7 @@
     <h3 style="color:#1a3a6b; margin-top:10px;" id="loadingText">กำลังดึงข้อมูลระบบ...</h3>
   </div>
 
+  <!-- หน้าหลัก -->
   <div id="pg-home">
     <div class="profile-card">
       <img id="uImg" src="https://via.placeholder.com/150" class="avatar">
@@ -75,7 +77,6 @@
     </div>
     <a href="leave-form.html" class="btn-primary">📝 ยื่นใบลาออนไลน์</a>
     
-    <!-- 🌟 กระดานใครลาบ้างวันนี้ -->
     <div class="card" style="background:transparent; padding:0 16px; box-shadow:none; margin-top:0;">
       <div class="card-title">👥 เพื่อนในฝ่ายที่ลาวันนี้</div>
       <div id="teamAbsenceList"></div>
@@ -90,18 +91,30 @@
     </div>
   </div>
 
+  <!-- หน้าประวัติการลาส่วนตัว (ปุ่มยกเลิกถูกซ่อนไว้สำหรับบุคคลทั่วไปแล้ว) -->
   <div id="pg-history" class="hide">
     <div class="card" style="background:transparent; padding:0 16px; box-shadow:none;"><div class="card-title">📜 ประวัติการลาของฉัน</div><div id="historyList"></div></div>
   </div>
 
+  <!-- หน้าอนุมัติของหัวหน้า -->
   <div id="pg-approval" class="hide">
     <div class="card" style="background:transparent; padding:0 16px; box-shadow:none;"><div class="card-title">📝 รายการรอพิจารณาอนุมัติ</div><div id="approvalList"></div></div>
+  </div>
+
+  <!-- 🌟 หน้าจอยกเลิกวันลา (สำหรับ Admin เท่านั้น) -->
+  <div id="pg-cancel" class="hide">
+    <div class="card" style="background:transparent; padding:0 16px; box-shadow:none;">
+      <div class="card-title" style="color:#ef4444;">⛔ จัดการยกเลิกวันลา (Admin)</div>
+      <div style="font-size:12px; color:#64748b; margin-bottom:15px;">*รายการที่ผู้จัดการอนุมัติแล้ว จะไม่สามารถยกเลิกได้</div>
+      <div id="cancelList"></div>
+    </div>
   </div>
 
   <div class="bottom-nav">
     <div class="nav-item active" id="nav-home" onclick="switchTab('home')"><span class="nav-icon">🏠</span>หน้าหลัก</div>
     <div class="nav-item" id="nav-history" onclick="switchTab('history')"><span class="nav-icon">📜</span>ประวัติ</div>
     <div class="nav-item hide" id="nav-approval" onclick="switchTab('approval')"><span class="nav-icon">✅</span>อนุมัติ</div>
+    <div class="nav-item hide" id="nav-cancel" onclick="switchTab('cancel')"><span class="nav-icon">⛔</span>ยกเลิก</div>
     <div class="nav-item hide" id="nav-report" onclick="window.location.href='report.html'"><span class="nav-icon">📈</span>รายงาน</div>
   </div>
 </div>
@@ -138,10 +151,11 @@
       document.getElementById('uDept').innerText = emp.department + ' · ' + emp.position;
       document.getElementById('fyLabel').innerText = "ปีบัญชี " + data.currentFY;
       
+      // การเปิดปิดเมนูตามสิทธิ์
       if (data.canViewReport) document.getElementById('nav-report').classList.remove('hide');
       if (data.isApprover) document.getElementById('nav-approval').classList.remove('hide');
+      if (data.canCancelLeave) document.getElementById('nav-cancel').classList.remove('hide'); // 🌟 เปิดเมนูให้แอดมินยกเลิก
 
-      // 🌟 วาดกระดานเพื่อนร่วมงานที่ลาวันนี้
       let tHTML = '';
       if(data.teamAbsences && data.teamAbsences.length > 0) {
         data.teamAbsences.forEach(t => {
@@ -157,15 +171,12 @@
 
       let html = '<div class="dashboard-stats">';
       const themes = ['theme-blue', 'theme-green', 'theme-orange', 'theme-red', 'theme-purple'];
-      
       data.leaveConfig.forEach((lt, index) => {
         const used = data.usedLeaves[lt.id] || 0;
         const theme = themes[index % themes.length];
-        
         if (typeof lt.quota === 'number') {
           const total = lt.quota; const remain = Math.max(0, total - used); const pct = Math.min(100, (used / total) * 100);
           let pbColor = '#3b82f6'; if (pct >= 80) pbColor = '#ef4444'; else if (pct >= 50) pbColor = '#f59e0b';
-          
           html += `<div class="lv-card ${theme}"><div class="lv-header"><div class="lv-title"><div class="lv-icon">${lt.emoji}</div> ${lt.name}</div></div><div class="lv-details"><div class="lv-stat"><div class="lv-stat-label">สิทธิทั้งหมด</div><div class="lv-stat-val">${total}</div></div><div class="lv-stat"><div class="lv-stat-label">ใช้ไป</div><div class="lv-stat-val val-used">${used}</div></div><div class="lv-stat"><div class="lv-stat-label">คงเหลือ</div><div class="lv-stat-val val-remain">${remain}</div></div></div><div class="lv-progress-bg"><div class="lv-progress-fill" style="width: ${pct}%; background: ${pbColor};"></div></div></div>`;
         } else {
           html += `<div class="lv-card ${theme}"><div class="lv-header"><div class="lv-title"><div class="lv-icon">${lt.emoji}</div> ${lt.name}</div><div class="lv-badge">${lt.quota}</div></div><div class="lv-details"><div class="lv-stat"><div class="lv-stat-label">จำนวนวันลาที่ถูกใช้ไป</div><div class="lv-stat-val val-used">${used} วัน</div></div></div></div>`;
@@ -177,11 +188,12 @@
   }
 
   function switchTab(tab) {
-    document.getElementById('pg-home').classList.add('hide'); document.getElementById('pg-history').classList.add('hide'); document.getElementById('pg-approval').classList.add('hide');
-    document.getElementById('nav-home').classList.remove('active'); document.getElementById('nav-history').classList.remove('active'); document.getElementById('nav-approval').classList.remove('active');
+    document.getElementById('pg-home').classList.add('hide'); document.getElementById('pg-history').classList.add('hide'); document.getElementById('pg-approval').classList.add('hide'); document.getElementById('pg-cancel').classList.add('hide');
+    document.getElementById('nav-home').classList.remove('active'); document.getElementById('nav-history').classList.remove('active'); document.getElementById('nav-approval').classList.remove('active'); document.getElementById('nav-cancel').classList.remove('active');
     document.getElementById('pg-'+tab).classList.remove('hide'); document.getElementById('nav-'+tab).classList.add('active');
     if(tab === 'history') loadHistory();
     if(tab === 'approval') loadApprovals();
+    if(tab === 'cancel') loadCancelList(); // 🌟 โหลดหน้ายกเลิก
   }
 
   function loadHistory() {
@@ -200,27 +212,12 @@
           else if (st === 'pending_supervisor' || st === 'pending_l1') statusUI = `<div style="text-align:right;"><div style="color:#F59E0B; font-size:12px; font-weight:bold; background:#fffbeb; padding:4px 10px; border-radius:12px;">⏳ รอ ผช. อนุมัติ</div></div>`;
           else if (st === 'pending_manager' || st === 'pending_l2') statusUI = `<div style="text-align:right;"><div style="color:#8B5CF6; font-size:12px; font-weight:bold; background:#f3e8ff; padding:4px 10px; border-radius:12px;">⏳ รอ ผจก. อนุมัติ</div>${r.l1ApproverName !== '-' ? `<div style="font-size:11px; color:#10B981; margin-top:6px;">✓ ผ่าน ผช. (${r.l1ApproverName})</div>` : ''}</div>`;
 
-          // 🌟 ปุ่มขอยกเลิก (โชว์เฉพาะถ้าสถานะไม่ใช่ ยกเลิก/ไม่อนุมัติ)
-          const canCancel = (st !== 'cancelled' && st !== 'rejected' && !st.includes('ไม่อนุมัติ'));
-          const cancelBtn = canCancel ? `<button onclick="doCancelLeave('${r.requestId}')" style="margin-top:12px; width:100%; padding:10px; background:#fef2f2; color:#ef4444; border:1px solid #fca5a5; border-radius:8px; font-weight:bold; cursor:pointer;">⛔ ขอยกเลิกใบลา (ดึงโควตาคืน)</button>` : '';
-
-          html += `<div class="history-item"><div class="hist-top"><div><div style="font-weight:800; color:#1e293b; font-size:15px;">${ln[r.leaveType] || r.leaveType}</div><div style="font-size:12px; color:#64748b; margin-top:4px;">📅 ${r.startDate} ${r.endDate !== r.startDate ? ' — '+r.endDate : ''}</div></div>${statusUI}</div><div style="font-size:13px; color:#475569;"><span style="font-weight:bold;">จำนวน:</span> ${r.duration} วัน <br><span style="font-weight:bold;">เหตุผล:</span> ${r.reason || '-'}</div>${cancelBtn}</div>`;
+          // นำปุ่มยกเลิกของหน้าประวัติออก เพื่อป้องกันผู้ใช้งานทั่วไปกดยกเลิกเอง
+          html += `<div class="history-item"><div class="hist-top"><div><div style="font-weight:800; color:#1e293b; font-size:15px;">${ln[r.leaveType] || r.leaveType}</div><div style="font-size:12px; color:#64748b; margin-top:4px;">📅 ${r.startDate} ${r.endDate !== r.startDate ? ' — '+r.endDate : ''}</div></div>${statusUI}</div><div style="font-size:13px; color:#475569;"><span style="font-weight:bold;">จำนวน:</span> ${r.duration} วัน <br><span style="font-weight:bold;">เหตุผล:</span> ${r.reason || '-'}</div></div>`;
         });
         document.getElementById('historyList').innerHTML = html;
       });
     });
-  }
-
-  // 🌟 ฟังก์ชันกดยกเลิก
-  function doCancelLeave(reqId) {
-    if(!confirm('ยืนยันการ "ยกเลิก" ใบลา และดึงโควตากลับคืน ใช่หรือไม่?')) return;
-    document.getElementById('loadingText').innerText = "กำลังทำการยกเลิก...";
-    document.getElementById('loading').classList.remove('hide');
-    
-    callAPI('cancelLeave', { lineUserId: myUserId, reqId: reqId }).then(res => {
-      document.getElementById('loading').classList.add('hide'); alert('✅ ยกเลิกสำเร็จ โควตาถูกคืนเข้าระบบแล้ว'); 
-      loadHistory(); // โหลดประวัติใหม่
-    }).catch(err => { document.getElementById('loading').classList.add('hide'); alert('❌ ' + err.message); });
   }
 
   function loadApprovals() {
@@ -236,8 +233,6 @@
           if ((st === 'pending_manager' || st === 'pending_l2') && r.l1ApproverName !== '-') {
             l1PassHtml = `<div style="font-size:12px; color:#10B981; margin-top:8px; background:#d1fae5; display:inline-block; padding:4px 10px; border-radius:8px; font-weight:bold;">✓ ผ่านการพิจารณาขั้นต้นโดย: ${r.l1ApproverName}</div>`;
           }
-
-          // 🌟 แจ้งเตือนวันลาชนกัน (Overlap)
           const overlapHtml = r.overlapCount > 0 ? `<div style="margin-top:8px; padding:10px; background:#fef2f2; color:#ef4444; border:1px solid #fca5a5; border-radius:8px; font-size:12px; font-weight:bold;">⚠️ มีพนักงานในแผนก ลาตรงกับช่วงเวลานี้แล้ว ${r.overlapCount} คน<br><span style="font-weight:normal;">(${r.overlapNames})</span></div>` : '';
 
           html += `<div class="history-item"><div style="border-bottom:1px dashed #e2e8f0; padding-bottom:12px; margin-bottom:4px;"><div style="font-weight:800; color:#1e293b; font-size:15px;">👤 ${r.name}</div><div style="font-size:12px; color:#64748b; margin-top:2px;">ตำแหน่ง: ${r.position}</div></div><div style="margin-bottom:12px;"><div style="font-size:14px; font-weight:700; color:#c8960c; margin-bottom:6px;">${ln[r.leaveType] || r.leaveType} (${r.duration} วัน)</div><div style="font-size:13px; color:#475569; margin-bottom:4px;">📅 <span style="font-weight:600;">${r.startDate}</span> ${r.endDate !== r.startDate ? ' — <span style="font-weight:600;">'+r.endDate+'</span>' : ''}</div><div style="font-size:13px; color:#475569;">💬 ${r.reason || '-'}</div>${l1PassHtml}${overlapHtml}</div><div style="display:flex; gap:10px; width:100%;"><button onclick="submitApproval('${r.requestId}', 'approved')" style="flex:1; padding:12px; background:#10B981; color:white; border:none; border-radius:12px; font-weight:bold; cursor:pointer; box-shadow:0 4px 6px rgba(16,185,129,0.25);">✅ อนุมัติ</button><button onclick="submitApproval('${r.requestId}', 'rejected')" style="flex:1; padding:12px; background:#EF4444; color:white; border:none; border-radius:12px; font-weight:bold; cursor:pointer; box-shadow:0 4px 6px rgba(239,68,68,0.25);">❌ ไม่อนุมัติ</button></div></div>`;
@@ -245,6 +240,44 @@
         document.getElementById('approvalList').innerHTML = html;
       });
     });
+  }
+
+  // 🌟 ฟังก์ชันโหลดรายการสำหรับ "หน้าจอแอดมินยกเลิก"
+  function loadCancelList() {
+    document.getElementById('cancelList').innerHTML = '<div style="text-align:center; padding:30px; color:#94a3b8; font-weight:bold;">กำลังค้นหารายการ...</div>';
+    callAPI('getCancelableLeaves', { lineUserId: myUserId }).then(data => {
+      if(!data || data.length === 0) { document.getElementById('cancelList').innerHTML = '<div style="text-align:center; padding:30px; background:#fff; border-radius:16px; color:#94a3b8; font-weight:bold;">🎉 ไม่มีใบลาที่รอดำเนินการ</div>'; return; }
+      callAPI('getDashboardData', { lineUserId: myUserId }).then(db => {
+        const ln = {}; db.leaveConfig.forEach(lt => ln[lt.id] = lt.name);
+        let html = '';
+        data.forEach(r => {
+          html += `<div class="history-item">
+            <div style="border-bottom:1px dashed #e2e8f0; padding-bottom:12px; margin-bottom:4px;">
+              <div style="font-weight:800; color:#1e293b; font-size:15px;">👤 ${r.name}</div>
+              <div style="font-size:12px; color:#64748b; margin-top:2px;">ฝ่าย: ${r.department}</div>
+            </div>
+            <div style="margin-bottom:12px;">
+              <div style="font-size:14px; font-weight:700; color:#c8960c; margin-bottom:6px;">${ln[r.leaveType] || r.leaveType} (${r.duration} วัน)</div>
+              <div style="font-size:13px; color:#475569; margin-bottom:4px;">📅 <span style="font-weight:600;">${r.startDate}</span> ${r.endDate !== r.startDate ? ' — <span style="font-weight:600;">'+r.endDate+'</span>' : ''}</div>
+              <div style="font-size:13px; color:#475569;">💬 ${r.reason || '-'}</div>
+            </div>
+            <button onclick="doAdminCancelLeave('${r.requestId}')" style="width:100%; padding:12px; background:#fef2f2; color:#ef4444; border:1px solid #fca5a5; border-radius:12px; font-weight:bold; cursor:pointer;">⛔ บังคับยกเลิกใบลาของพนักงาน</button>
+          </div>`;
+        });
+        document.getElementById('cancelList').innerHTML = html;
+      });
+    });
+  }
+
+  function doAdminCancelLeave(reqId) {
+    if(!confirm('แอดมินยืนยันการ "ยกเลิก" ใบลาของพนักงาน ใช่หรือไม่?')) return;
+    document.getElementById('loadingText').innerText = "กำลังทำการยกเลิก...";
+    document.getElementById('loading').classList.remove('hide');
+    
+    callAPI('cancelLeave', { lineUserId: myUserId, reqId: reqId }).then(res => {
+      document.getElementById('loading').classList.add('hide'); alert('✅ ยกเลิกสำเร็จ โควตาไม่ได้ถูกหักครับ'); 
+      loadCancelList(); 
+    }).catch(err => { document.getElementById('loading').classList.add('hide'); alert('❌ ' + err.message); });
   }
 
   function submitApproval(reqId, decision) {
