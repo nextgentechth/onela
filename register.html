@@ -1,99 +1,104 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>ลงทะเบียน — ระบบลาออนไลน์</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ลงทะเบียนบุคลากร</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Sarabun',sans-serif; background:#f4f7fb; color:#333; }
-  .app-container { max-width: 500px; margin: 0 auto; min-height: 100vh; background: #f4f7fb; position: relative; padding-bottom: 30px;}
-  .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50;}
-  .header img { height: 32px; border-radius: 4px; background:#fff; padding:2px;}
-  .step-bar { display:flex; padding:12px 16px; background:#162d55; gap:6px; }
-  .step { flex:1; height:4px; background:#ffffff30; border-radius:2px; }
-  .step.active { background:#fff; } .step.done { background:#f5a623; }
-  .card { background:#fff; margin:16px; padding:20px; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
-  .card-title { font-size:16px; font-weight:700; color:#1a3a6b; margin-bottom:16px;}
-  label { display:block; font-size:13px; color:#555; margin:12px 0 4px; font-weight:600;}
-  input, select { width:100%; padding:12px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:15px; font-family:'Sarabun',sans-serif; outline:none; background:#fafafa;}
-  input:focus, select:focus { border-color:#1a3a6b; background:#fff;}
-  .nav-row { display:flex; gap:10px; padding:0 16px; margin-top:20px; }
-  .btn-back { width:50px; background:#fff; border:1.5px solid #ddd; border-radius:12px; font-size:20px; cursor:pointer; color:#555;}
-  .btn-next { flex:1; background:#1a3a6b; color:#fff; border:none; border-radius:12px; padding:14px; font-size:16px; font-weight:700; cursor:pointer;}
-  .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
-  .hide { display: none !important; }
+  body { font-family:'Sarabun',sans-serif; background:#f4f7fb; padding:20px; display:flex; justify-content:center; align-items:center; min-height:90vh; margin:0;}
+  .card { background:#fff; padding:30px; border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,0.05); width:100%; max-width:400px; text-align:center;}
+  label { display:block; text-align:left; font-weight:bold; color:#1a3a6b; margin-top:15px; margin-bottom:5px; font-size:14px;}
+  input, select { width:100%; padding:12px; border:1px solid #ccc; border-radius:8px; font-family:'Sarabun'; outline:none; font-size:15px;}
+  .btn { width:100%; background:#1a3a6b; color:#fff; padding:15px; border:none; border-radius:10px; font-weight:bold; cursor:pointer; margin-top:25px; font-size:16px;}
+  .avatar { width:80px; height:80px; border-radius:50%; margin:0 auto 10px; display:block; object-fit:cover; border:3px solid #e0e7ff;}
+  .hide { display:none; }
 </style>
 </head>
 <body>
-<div class="app-container">
-  <div class="header">
-    <img src="https://www.coopkku.com/info/html/images/logo1.png" alt="Logo">
-    <div><h1 style="font-size:16px;margin:0;">ลงทะเบียนใช้งาน</h1><p style="font-size:12px;margin:0;color:#aaccff;">ระบบลาออนไลน์</p></div>
-  </div>
-  <div class="step-bar"><div class="step active" id="s1"></div><div class="step" id="s2"></div><div class="step" id="s3"></div></div>
+<div class="card" id="regForm">
+  <img id="uImg" src="https://via.placeholder.com/150" class="avatar">
+  <h2 style="color:#1a3a6b; margin-bottom:5px;">ลงทะเบียนพนักงาน</h2>
+  <p style="color:#64748b; font-size:13px; margin-bottom:20px;">กรุณากรอกข้อมูลเพื่อขอเข้าใช้งานระบบ</p>
+  
+  <label>ชื่อ - นามสกุล</label>
+  <input type="text" id="name" placeholder="นาย/นางสาว..." required>
+  
+  <label>ฝ่าย / แผนก</label>
+  <select id="department"></select>
 
-  <div id="step1">
-    <div class="card">
-      <div class="card-title">👤 ข้อมูลส่วนตัว</div>
-      <label>คำนำหน้า</label> <select id="prefix"><option>นาย</option><option>นาง</option><option>นางสาว</option></select>
-      <label>ชื่อ</label> <input type="text" id="firstName">
-      <label>นามสกุล</label> <input type="text" id="lastName">
-    </div>
-    <div class="nav-row"><button class="btn-next" onclick="nextStep(1)">ถัดไป →</button></div>
-  </div>
-
-  <div id="step2" class="hide">
-    <div class="card">
-      <div class="card-title">📞 ข้อมูลติดต่อ</div>
-      <label>อีเมล</label> <input type="email" id="email">
-      <label>เบอร์โทรศัพท์</label> <input type="tel" id="phone" maxlength="10">
-    </div>
-    <div class="nav-row"><button class="btn-back" onclick="prevStep(2)">‹</button><button class="btn-next" onclick="nextStep(2)">ถัดไป →</button></div>
-  </div>
-
-  <div id="step3" class="hide">
-    <div class="card">
-      <div class="card-title">🏢 ตำแหน่งงาน</div>
-      <label>ฝ่าย / แผนก</label> <select id="department"><option>ฝ่ายธุรการ</option><option>ฝ่ายการเงิน</option><option>ฝ่ายบัญชี</option><option>ฝ่ายสินเชื่อ</option><option>ฝ่ายทะเบียน</option><option>ฝ่ายสวัสดิการ</option><option>ฝ่ายบริหาร</option><option>ฝ่ายทรัพยากรบุคคล</option></select>
-      <label>ตำแหน่ง</label> <select id="position"><option>เจ้าหน้าที่</option><option>ผู้ช่วยผู้จัดการ</option><option>รองผู้จัดการ</option><option>ผู้จัดการ</option></select>
-    </div>
-    <div class="nav-row"><button class="btn-back" onclick="prevStep(3)">‹</button><button class="btn-next" id="btnSubmit" onclick="submitForm()">ยืนยันข้อมูล ✓</button></div>
-  </div>
-
-  <div id="loading" class="overlay hide"><div style="font-size:40px; animation:bounce 0.6s infinite alternate;">🦙</div><h3 style="color:#1a3a6b;">กำลังบันทึกข้อมูล...</h3></div>
+  <label>ตำแหน่ง</label>
+  <select id="position"></select>
+  
+  <label>อีเมล (ถ้ามี / ใช้สำหรับเข้าเว็บ)</label>
+  <input type="email" id="email" placeholder="example@coopkku.com">
+  
+  <button class="btn" onclick="registerUser()" id="btnReg">ยืนยันการลงทะเบียน</button>
 </div>
+
+<div class="card hide" id="waitForm">
+  <div style="font-size:50px; margin-bottom:10px;">⏳</div>
+  <h2 style="color:#f59e0b;">รอการอนุมัติ</h2>
+  <p style="color:#64748b; font-size:15px; margin-top:10px;">คุณได้ลงทะเบียนแล้ว กรุณารอแอดมินอนุมัติบัญชีในระบบหลังบ้านก่อนเข้าใช้งานครับ</p>
+</div>
+
 <script>
-  let userId = "";
-  async function callAPI(action, payloadData = {}) {
-    const res = await fetch(AppConfig.GAS_URL, { method: 'POST', body: JSON.stringify({ action: action, ...payloadData }) });
-    const result = await res.json();
-    if (result.status === 'success') return result.data;
-    throw new Error(result.message);
-  }
-  liff.init({ liffId: AppConfig.LIFF_ID }).then(() => {
-    if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
-    liff.getProfile().then(p => { userId = p.userId; });
-  });
-  function nextStep(step) {
-    if(step===1 && (!document.getElementById('firstName').value || !document.getElementById('lastName').value)) return alert('กรุณากรอกชื่อ-นามสกุล');
-    document.getElementById('step'+step).classList.add('hide'); document.getElementById('step'+(step+1)).classList.remove('hide');
-    document.getElementById('s'+step).classList.replace('active','done'); document.getElementById('s'+(step+1)).classList.add('active');
-  }
-  function prevStep(step) {
-    document.getElementById('step'+step).classList.add('hide'); document.getElementById('step'+(step-1)).classList.remove('hide');
-    document.getElementById('s'+step).classList.remove('active'); document.getElementById('s'+(step-1)).classList.replace('done','active');
-  }
-  function submitForm() {
-    if(!userId) return alert('ข้อผิดพลาด: ไม่พบ LINE ID');
-    document.getElementById('loading').classList.remove('hide');
-    const payload = { lineUserId: userId, name: document.getElementById('prefix').value + document.getElementById('firstName').value.trim() + ' ' + document.getElementById('lastName').value.trim(), email: document.getElementById('email').value.trim(), phone: document.getElementById('phone').value.trim(), department: document.getElementById('department').value, position: document.getElementById('position').value };
-    callAPI('registerEmployee', { payload: payload }).then(res => {
-      document.getElementById('loading').classList.add('hide');
-      if(res.ok) { alert('✅ ลงทะเบียนสำเร็จ! กรุณารอผู้ดูแลระบบยืนยันบัญชี'); liff.closeWindow(); } else { alert(res.msg); }
-    }).catch(err => { document.getElementById('loading').classList.add('hide'); alert('Error: ' + err.message); });
+  const supabase = supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
+  let lineUserId = '';
+
+  window.onload = async () => {
+    // ดึงตัวเลือกแผนกและตำแหน่งมาจาก config.js
+    const deptHtml = AppConfig.DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('');
+    const posHtml = AppConfig.POSITIONS.map(p => `<option value="${p}">${p}</option>`).join('');
+    document.getElementById('department').innerHTML = deptHtml;
+    document.getElementById('position').innerHTML = posHtml;
+
+    await liff.init({ liffId: AppConfig.LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    
+    const profile = await liff.getProfile();
+    lineUserId = profile.userId;
+    document.getElementById('uImg').src = profile.pictureUrl || 'https://via.placeholder.com/150';
+
+    // เช็คว่าเคยลงทะเบียนไว้แล้วหรือยัง
+    const { data } = await supabase.from('employees').select('status').eq('line_user_id', lineUserId).maybeSingle();
+    
+    if (data) {
+      if (data.status === 'pending') {
+        document.getElementById('regForm').classList.add('hide');
+        document.getElementById('waitForm').classList.remove('hide');
+      } else if (data.status === 'active') {
+        // อนุมัติแล้ว เด้งเข้าหน้าหลักทันที
+        window.location.replace('index.html');
+      }
+    }
+  };
+
+  async function registerUser() {
+    const name = document.getElementById('name').value.trim();
+    if (!name) return alert('กรุณากรอกชื่อ-สกุล');
+    
+    document.getElementById('btnReg').innerText = "กำลังบันทึกข้อมูล...";
+
+    // ส่งข้อมูลบันทึกลงฐานข้อมูล
+    const { error } = await supabase.from('employees').insert([{
+      line_user_id: lineUserId,
+      name: name,
+      department: document.getElementById('department').value,
+      position: document.getElementById('position').value,
+      email: document.getElementById('email').value || null,
+      status: 'pending' // สถานะเบื้องต้นคือรออนุมัติ
+    }]);
+
+    if (error) {
+      alert("❌ ไม่สามารถลงทะเบียนได้: อาจมีอีเมลนี้อยู่ในระบบแล้ว หรือเกิดข้อผิดพลาด");
+      document.getElementById('btnReg').innerText = "ยืนยันการลงทะเบียน";
+    } else {
+      document.getElementById('regForm').classList.add('hide');
+      document.getElementById('waitForm').classList.remove('hide');
+    }
   }
 </script>
 </body>
