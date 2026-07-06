@@ -32,7 +32,7 @@
   <label>ตำแหน่ง</label>
   <select id="position"></select>
   
-  <label>อีเมล (ถ้ามี / ใช้สำหรับเข้าเว็บ)</label>
+  <label>อีเมล (ถ้ามี / ใช้สำหรับเข้าเว็บ Admin)</label>
   <input type="email" id="email" placeholder="example@coopkku.com">
   
   <button class="btn" onclick="registerUser()" id="btnReg">ยืนยันการลงทะเบียน</button>
@@ -45,11 +45,10 @@
 </div>
 
 <script>
-  const supabase = supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
+  const db = window.supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
   let lineUserId = '';
 
   window.onload = async () => {
-    // ดึงตัวเลือกแผนกและตำแหน่งมาจาก config.js
     const deptHtml = AppConfig.DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('');
     const posHtml = AppConfig.POSITIONS.map(p => `<option value="${p}">${p}</option>`).join('');
     document.getElementById('department').innerHTML = deptHtml;
@@ -62,15 +61,13 @@
     lineUserId = profile.userId;
     document.getElementById('uImg').src = profile.pictureUrl || 'https://via.placeholder.com/150';
 
-    // เช็คว่าเคยลงทะเบียนไว้แล้วหรือยัง
-    const { data } = await supabase.from('employees').select('status').eq('line_user_id', lineUserId).maybeSingle();
+    const { data } = await db.from('employees').select('status').eq('line_user_id', lineUserId).maybeSingle();
     
     if (data) {
       if (data.status === 'pending') {
         document.getElementById('regForm').classList.add('hide');
         document.getElementById('waitForm').classList.remove('hide');
       } else if (data.status === 'active') {
-        // อนุมัติแล้ว เด้งเข้าหน้าหลักทันที
         window.location.replace('index.html');
       }
     }
@@ -82,18 +79,17 @@
     
     document.getElementById('btnReg').innerText = "กำลังบันทึกข้อมูล...";
 
-    // ส่งข้อมูลบันทึกลงฐานข้อมูล
-    const { error } = await supabase.from('employees').insert([{
+    const { error } = await db.from('employees').insert([{
       line_user_id: lineUserId,
       name: name,
       department: document.getElementById('department').value,
       position: document.getElementById('position').value,
       email: document.getElementById('email').value || null,
-      status: 'pending' // สถานะเบื้องต้นคือรออนุมัติ
+      status: 'pending' 
     }]);
 
     if (error) {
-      alert("❌ ไม่สามารถลงทะเบียนได้: อาจมีอีเมลนี้อยู่ในระบบแล้ว หรือเกิดข้อผิดพลาด");
+      alert("❌ ไม่สามารถลงทะเบียนได้: " + error.message);
       document.getElementById('btnReg').innerText = "ยืนยันการลงทะเบียน";
     } else {
       document.getElementById('regForm').classList.add('hide');
