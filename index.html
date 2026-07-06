@@ -1,154 +1,210 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ระบบลาออนไลน์</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>หน้าหลัก — COOPKKU</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
-  * { margin:0; padding:0; box-sizing:border-box; font-family:'Sarabun',sans-serif; }
-  body { background:#f4f7fb; color:#333; padding-bottom:70px; }
-  .container { max-width:500px; margin:0 auto; }
-  .header { background:#1a3a6b; color:#fff; padding:16px; text-align:center; font-weight:bold; position:sticky; top:0; z-index:50;}
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Sarabun',sans-serif; background:#f4f7fb; color:#333; padding-bottom: 70px;}
+  .app-container { max-width: 500px; margin: 0 auto; min-height: 100vh; background: #f4f7fb; position: relative;}
+  .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50;}
+  .header img { height: 32px; border-radius: 4px; background:#fff; padding:2px;}
+  .profile-card { background:linear-gradient(135deg,#1a3a6b,#2a5298); margin:16px; border-radius:16px; padding:20px; color:#fff; display:flex; align-items:center; gap:15px; box-shadow:0 6px 16px rgba(26,58,107,0.2); }
+  .avatar { width:60px; height:60px; border-radius:50%; border:3px solid #e0e7ff; background:#ffffff30;}
+  .btn-primary { display:block; text-align:center; background:#c8960c; color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; text-decoration:none; margin:16px; box-shadow:0 4px 10px rgba(200,150,12,0.3);}
   .card { background:#fff; margin:16px; padding:20px; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
-  .btn { display:block; width:100%; background:#c8960c; color:#fff; padding:15px; border:none; border-radius:10px; font-weight:bold; cursor:pointer; text-align:center; text-decoration:none; margin-bottom:10px;}
-  .btn-green { background:#10B981; } .btn-red { background:#EF4444; }
-  .history-item { border-bottom:1px dashed #eee; padding:15px 0; }
-  .nav { position:fixed; bottom:0; width:100%; max-width:500px; background:#fff; display:flex; box-shadow:0 -2px 10px rgba(0,0,0,0.05); }
-  .nav div { flex:1; text-align:center; padding:15px 0; cursor:pointer; font-size:12px; font-weight:bold; color:#666; }
-  .nav .active { color:#1a3a6b; border-top:3px solid #1a3a6b; }
-  .hide { display:none; }
+  .card-title { font-size:16px; font-weight:700; color:#1a3a6b; margin-bottom:15px;}
+  
+  .dashboard-stats { display: flex; flex-direction: column; gap: 12px; }
+  .lv-card { background: #fff; border: 1px solid #edf2f7; border-radius: 12px; padding: 15px; border-left:4px solid #3b82f6;}
+  .lv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight:bold;}
+  .lv-details { display: flex; justify-content: space-between; text-align: center; background: #f8fafc; border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size:13px;}
+  .val-used { color: #ef4444; font-weight:bold;} .val-remain { color: #10b981; font-weight:bold;}
+  .lv-progress-bg { height: 6px; background: #e2e8f0; border-radius: 6px; width: 100%;}
+  .lv-progress-fill { height: 100%; border-radius: 6px; background:#3b82f6; }
+
+  .history-item { padding:15px; border-radius:12px; margin-bottom:10px; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.02); border:1px solid #f1f5f9;}
+  .btn-action { width:100%; padding:10px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px;}
+  
+  .bottom-nav { position:fixed; bottom:0; width:100%; max-width:500px; background:#fff; display:flex; box-shadow:0 -4px 12px rgba(0,0,0,0.05); z-index:100; overflow-x:auto;}
+  .nav-item { flex:1; min-width:65px; text-align:center; padding:12px 0; color:#9ca3af; font-size:10px; cursor:pointer; font-weight:600;}
+  .nav-item.active { color:#1a3a6b; border-top:3px solid #1a3a6b; background:#f8fafc;}
+  .nav-icon { font-size:18px; display:block; margin-bottom:2px;}
+  .hide { display: none !important; }
+  .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.9); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="header">ระบบลาออนไลน์ COOPKKU</div>
+<div class="app-container">
+  <div class="header"><img src="https://www.coopkku.com/info/html/images/logo1.png"> <span style="font-size:16px;">ระบบลาออนไลน์</span></div>
+  <div id="loading" class="overlay"><div style="font-size:40px;">⏳</div><h3>กำลังประมวลผล...</h3></div>
 
-  <!-- หน้าแรก Dashboard -->
   <div id="pg-home">
-    <div class="card">
-      <h3 id="uName">กำลังโหลดข้อมูล...</h3><p id="uPos"></p>
+    <div class="profile-card">
+      <div class="avatar"></div>
+      <div><h2 id="uName" style="font-size:18px; margin-bottom:4px;">-</h2><p id="uPos" style="font-size:13px; opacity:0.9;">-</p></div>
     </div>
-    <div style="padding:0 16px;"><a href="leave-form.html" class="btn">📝 ยื่นใบลาออนไลน์</a></div>
-    <div class="card"><h3>📊 ประวัติการลาของฉัน</h3><div id="myLeaves"></div></div>
+    <a href="leave-form.html" class="btn-primary">📝 ยื่นใบลาออนไลน์</a>
+    
+    <div class="card" style="background:transparent; padding:0 16px; box-shadow:none;">
+      <div class="card-title">👥 ทีมที่ลาวันนี้</div><div id="teamList"></div>
+    </div>
+    <div class="card" style="background:transparent; padding:0 16px; box-shadow:none;">
+      <div class="card-title">📊 สรุปสิทธิวันลา</div><div id="leaveGrid"></div>
+    </div>
   </div>
 
-  <!-- หน้าอนุมัติ (หัวหน้า) -->
-  <div id="pg-approve" class="hide">
-    <div class="card"><h3>📝 รอพิจารณาอนุมัติ</h3><div id="approveList"></div></div>
-  </div>
+  <div id="pg-history" class="hide"><div class="card" style="background:transparent; padding:0 16px; box-shadow:none;"><div class="card-title">📜 ประวัติการลา</div><div id="historyList"></div></div></div>
+  <div id="pg-approval" class="hide"><div class="card" style="background:transparent; padding:0 16px; box-shadow:none;"><div class="card-title">📝 รออนุมัติ</div><div id="approvalList"></div></div></div>
+  <div id="pg-cancel" class="hide"><div class="card" style="background:transparent; padding:0 16px; box-shadow:none;"><div class="card-title" style="color:#ef4444;">⛔ บังคับยกเลิก (Admin)</div><div id="cancelList"></div></div></div>
 
-  <!-- หน้าแอดมิน (ยกเลิก) -->
-  <div id="pg-cancel" class="hide">
-    <div class="card"><h3>⛔ จัดการยกเลิกใบลา</h3><div id="cancelList"></div></div>
-  </div>
-
-  <div class="nav">
-    <div id="n-home" class="active" onclick="tab('home')">🏠 หน้าหลัก</div>
-    <div id="n-approve" class="hide" onclick="tab('approve')">✅ อนุมัติ</div>
-    <div id="n-cancel" class="hide" onclick="tab('cancel')">⛔ ยกเลิก</div>
-    <div id="n-report" class="hide" onclick="window.location.href='report.html'">📈 รายงาน</div>
-    <div id="n-admin" class="hide" onclick="window.location.href='admin.html'">⚙️ แอดมิน</div>
+  <div class="bottom-nav">
+    <div class="nav-item active" id="nav-home" onclick="tab('home')"><span class="nav-icon">🏠</span>หน้าหลัก</div>
+    <div class="nav-item" id="nav-history" onclick="tab('history')"><span class="nav-icon">📜</span>ประวัติ</div>
+    <div class="nav-item hide" id="nav-approval" onclick="tab('approval')"><span class="nav-icon">✅</span>อนุมัติ</div>
+    <div class="nav-item hide" id="nav-cancel" onclick="tab('cancel')"><span class="nav-icon">⛔</span>ยกเลิก</div>
+    <div class="nav-item hide" id="nav-report" onclick="window.location.href='report.html'"><span class="nav-icon">📈</span>รายงาน</div>
+    <div class="nav-item hide" id="nav-admin" onclick="window.location.href='admin.html'"><span class="nav-icon">⚙️</span>แอดมิน</div>
   </div>
 </div>
 
 <script>
   const supabase = supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
-  let currentUser = null;
+  let user = null;
 
   window.onload = async () => {
-    // 🌟 ระบบ Dual Auth ตรวจจับแพลตฟอร์ม
     const { data: { session } } = await supabase.auth.getSession();
     
-    if (session) {
-      // เข้าผ่าน Web PC
+    if (session) { // PC Web
       const { data } = await supabase.from('employees').select('*').eq('email', session.user.email).single();
-      currentUser = data;
-      initApp();
-    } else if (liff.isInClient() || true) { // ให้ทดสอบใน PC ได้ชั่วคราว
-      // เข้าผ่าน LINE LIFF
+      user = data; initApp();
+    } else { // LINE LIFF
       await liff.init({ liffId: AppConfig.LIFF_ID });
-      if (!liff.isLoggedIn()) { liff.login(); return; }
+      if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
       const profile = await liff.getProfile();
       const { data } = await supabase.from('employees').select('*').eq('line_user_id', profile.userId).single();
-      currentUser = data;
-      if (!currentUser || currentUser.status !== 'active') window.location.href = 'register.html';
-      else initApp();
+      if (!data || data.status !== 'active') window.location.replace('register.html');
+      else { user = data; initApp(); }
     }
   };
 
   function initApp() {
-    document.getElementById('uName').innerText = currentUser.name;
-    document.getElementById('uPos').innerText = currentUser.department + ' (' + currentUser.position + ')';
+    document.getElementById('loading').classList.add('hide');
+    document.getElementById('uName').innerText = user.name;
+    document.getElementById('uPos').innerText = user.department + ' (' + user.position + ')';
     
-    const pos = currentUser.position;
-    if (['ผู้ช่วยผู้จัดการ', 'รองผู้จัดการ', 'ผู้จัดการ'].includes(pos)) document.getElementById('n-approve').classList.remove('hide');
-    if (currentUser.is_hr || currentUser.is_admin) {
-      document.getElementById('n-cancel').classList.remove('hide');
-      document.getElementById('n-report').classList.remove('hide');
-    }
-    if (currentUser.is_admin) document.getElementById('n-admin').classList.remove('hide');
+    if (['ผู้ช่วยผู้จัดการ','รองผู้จัดการ','ผู้จัดการ'].includes(user.position)) document.getElementById('nav-approval').classList.remove('hide');
+    if (user.is_hr || user.can_view_report) document.getElementById('nav-report').classList.remove('hide');
+    if (user.is_hr || user.is_admin) document.getElementById('nav-cancel').classList.remove('hide');
+    if (user.is_admin) document.getElementById('nav-admin').classList.remove('hide');
 
-    loadMyLeaves();
+    loadDashboard();
   }
 
   function tab(name) {
-    ['home', 'approve', 'cancel'].forEach(t => {
-      document.getElementById('pg-'+t).classList.add('hide');
-      document.getElementById('n-'+t).classList.remove('active');
+    ['home', 'history', 'approval', 'cancel'].forEach(t => {
+      document.getElementById('pg-'+t).classList.add('hide'); document.getElementById('nav-'+t).classList.remove('active');
     });
-    document.getElementById('pg-'+name).classList.remove('hide');
-    document.getElementById('n-'+name).classList.add('active');
+    document.getElementById('pg-'+name).classList.remove('hide'); document.getElementById('nav-'+name).classList.add('active');
     
-    if (name === 'approve') loadApprovals();
+    if (name === 'history') loadHistory();
+    if (name === 'approval') loadApprovals();
     if (name === 'cancel') loadCancel();
   }
 
-  // 🌟 ดึงข้อมูลจาก Supabase โดยตรง (เร็วระดับเสี้ยววินาที)
-  async function loadMyLeaves() {
-    const { data } = await supabase.from('leave_requests').select('*').eq('line_user_id', currentUser.line_user_id).order('created_at', { ascending: false });
+  async function loadDashboard() {
+    const y = new Date().getFullYear();
+    const startFY = `${y-1}-12-01`; const endFY = `${y}-11-30`;
+
+    // โหลดประวัติของตนเองในปีบัญชีเพื่อคำนวณโควตา
+    const { data: myLeaves } = await supabase.from('leave_requests').select('*')
+      .eq('line_user_id', user.line_user_id).in('status', ['approved', 'pending_manager', 'pending_supervisor'])
+      .gte('start_date', startFY).lte('start_date', endFY);
+
+    let html = '<div class="dashboard-stats">';
+    AppConfig.LEAVE_TYPES.forEach(lt => {
+      const used = myLeaves.filter(l => l.leave_type === lt.name && l.status === 'approved').reduce((sum, l) => sum + Number(l.duration), 0);
+      
+      if (typeof lt.quota === 'number') {
+        const remain = Math.max(0, lt.quota - used); const pct = Math.min(100, (used / lt.quota) * 100);
+        html += `<div class="lv-card"><div class="lv-header">${lt.emoji} ${lt.name}</div><div class="lv-details"><div>ทั้งหมด<br><b>${lt.quota}</b></div><div>ใช้ไป<br><span class="val-used">${used}</span></div><div>คงเหลือ<br><span class="val-remain">${remain}</span></div></div><div class="lv-progress-bg"><div class="lv-progress-fill" style="width:${pct}%"></div></div></div>`;
+      }
+    });
+    document.getElementById('leaveGrid').innerHTML = html + '</div>';
+
+    // โหลดทีมที่ลาวันนี้
+    const today = new Date().toISOString().split('T')[0];
+    const { data: team } = await supabase.from('leave_requests').select('name, end_date')
+      .eq('department', user.department).eq('status', 'approved')
+      .lte('start_date', today).gte('end_date', today);
+    
+    let tHtml = '';
+    if(team.length > 0) team.forEach(t => tHtml += `<div class="history-item" style="border-left:4px solid #f59e0b;"><b>👤 ${t.name}</b><br><small>ถึงวันที่: ${t.end_date}</small></div>`);
+    else tHtml = `<div class="history-item" style="text-align:center; color:#888;">✅ ทีมมาครบ</div>`;
+    document.getElementById('teamList').innerHTML = tHtml;
+  }
+
+  async function loadHistory() {
+    const { data } = await supabase.from('leave_requests').select('*').eq('line_user_id', user.line_user_id).order('created_at', { ascending: false });
     let html = '';
     data.forEach(r => {
-      html += `<div class="history-item"><b>${r.leave_type} (${r.duration} วัน)</b><br><small>📅 ${r.start_date} - ${r.end_date}</small><br><span style="color:#F59E0B">สถานะ: ${r.status}</span></div>`;
+      html += `<div class="history-item"><b>${r.leave_type} (${r.duration} วัน)</b><br>📅 ${r.start_date} - ${r.end_date}<br><span style="color:#F59E0B">สถานะ: ${r.status}</span></div>`;
     });
-    document.getElementById('myLeaves').innerHTML = html || 'ไม่มีประวัติ';
+    document.getElementById('historyList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีประวัติ</div>';
   }
 
   async function loadApprovals() {
-    const myPos = currentUser.position;
-    let query = supabase.from('leave_requests').select('*').eq('department', currentUser.department);
-    
-    if (myPos === 'ผู้จัดการ') query = supabase.from('leave_requests').select('*').eq('status', 'pending_manager');
+    let query = supabase.from('leave_requests').select('*, employees!inner(name)').eq('department', user.department);
+    if (user.position.includes('ผู้จัดการ')) query = supabase.from('leave_requests').select('*').eq('status', 'pending_manager');
     else query = query.eq('status', 'pending_supervisor');
 
     const { data } = await query.order('created_at', { ascending: false });
     let html = '';
     data.forEach(r => {
-      html += `<div class="history-item"><b>${r.name}</b><br>${r.leave_type} (${r.duration} วัน)<br>
-      <button class="btn btn-green" style="display:inline; width:48%; padding:10px; margin-top:10px;" onclick="doApprove('${r.request_id}', 'approved')">✅ อนุมัติ</button>
-      <button class="btn btn-red" style="display:inline; width:48%; padding:10px;" onclick="doApprove('${r.request_id}', 'rejected')">❌ ปฏิเสธ</button></div>`;
+      html += `<div class="history-item"><b>👤 ${r.name}</b><br>${r.leave_type} (${r.duration} วัน)<br>📅 ${r.start_date} ถึง ${r.end_date}
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button class="btn-action" style="background:#10B981; color:#fff;" onclick="actionLeave('${r.request_id}', 'approved', '${r.line_user_id}')">✅ อนุมัติ</button>
+        <button class="btn-action" style="background:#EF4444; color:#fff;" onclick="actionLeave('${r.request_id}', 'rejected', '${r.line_user_id}')">❌ ปฏิเสธ</button>
+      </div></div>`;
     });
-    document.getElementById('approveList').innerHTML = html || 'ไม่มีรายการ';
+    document.getElementById('approvalList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีรายการ</div>';
   }
 
-  async function doApprove(reqId, decision) {
+  async function loadCancel() {
+    const { data } = await supabase.from('leave_requests').select('*').in('status', ['pending_supervisor', 'pending_manager']).order('created_at', { ascending: false });
+    let html = '';
+    data.forEach(r => {
+      html += `<div class="history-item"><b>👤 ${r.name}</b><br>${r.leave_type} (${r.duration} วัน)<br>
+      <button class="btn-action" style="background:#fef2f2; color:#ef4444; border:1px solid #fca5a5;" onclick="actionLeave('${r.request_id}', 'cancelled', '${r.line_user_id}')">⛔ บังคับยกเลิก</button></div>`;
+    });
+    document.getElementById('cancelList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีรายการ</div>';
+  }
+
+  // 🌟 ฟังก์ชันจัดการ อนุมัติ/ปฏิเสธ/ยกเลิก (รวบยอด)
+  async function actionLeave(reqId, decision, targetUid) {
     if(!confirm('ยืนยันการทำรายการ?')) return;
-    const nextStatus = (decision === 'approved' && currentUser.position !== 'ผู้จัดการ') ? 'pending_manager' : decision;
+    document.getElementById('loading').classList.remove('hide');
     
+    let nextStatus = decision;
+    if (decision === 'approved' && !user.position.includes('ผู้จัดการ')) nextStatus = 'pending_manager';
+
     await supabase.from('leave_requests').update({ status: nextStatus }).eq('request_id', reqId);
     
-    // ถ้าอนุมัติขั้นสุด หักวันลาใน Supabase
-    if (nextStatus === 'approved') {
-      const { data: req } = await supabase.from('leave_requests').select('*').eq('request_id', reqId).single();
-      const col = AppConfig.LEAVE_TYPES.find(l => l.name === req.leave_type)?.bal;
-      if (col) {
-        const { data: emp } = await supabase.from('employees').select(col).eq('line_user_id', req.line_user_id).single();
-        await supabase.from('employees').update({ [col]: emp[col] - req.duration }).eq('line_user_id', req.line_user_id);
-      }
-    }
-    alert('บันทึกสำเร็จ!'); loadApprovals();
+    // 🌟 สะกิด GAS ให้ส่งไลน์
+    fetch(AppConfig.GAS_MAILMAN_URL, {
+      method: "POST", body: JSON.stringify({
+        apiKey: AppConfig.GAS_SECRET,
+        action: decision === 'cancelled' ? 'notify_cancel' : 'notify_result',
+        to: [targetUid],
+        data: { reqId: reqId, status: nextStatus, approverName: user.name, duration: 0 }
+      })
+    });
+
+    document.getElementById('loading').classList.add('hide'); alert('บันทึกสำเร็จ'); tab(decision === 'cancelled' ? 'cancel' : 'approval');
   }
 </script>
 </body>
