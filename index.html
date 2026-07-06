@@ -35,13 +35,13 @@
   .nav-item.active { color:#1a3a6b; border-top:3px solid #1a3a6b; background:#f8fafc;}
   .nav-icon { font-size:18px; display:block; margin-bottom:2px;}
   .hide { display: none !important; }
-  .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.9); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
+  .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
 </style>
 </head>
 <body>
 <div class="app-container">
   <div class="header"><img src="https://www.coopkku.com/info/html/images/logo1.png"> <span style="font-size:16px;">ระบบลาออนไลน์</span></div>
-  <div id="loading" class="overlay"><div style="font-size:40px;">⏳</div><h3>กำลังประมวลผล...</h3></div>
+  <div id="loading" class="overlay"><div style="font-size:40px;">⏳</div><h3 style="color:#1a3a6b; margin-top:10px;" id="loadingText">กำลังประมวลผล...</h3></div>
 
   <div id="pg-home">
     <div class="profile-card">
@@ -73,31 +73,28 @@
 </div>
 
 <script>
-  const supabase = supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
+  // 🌟 แก้ไขบั๊กการตั้งชื่อตัวแปรที่ซ้ำกัน
+  const db = window.supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
   let user = null;
 
   window.onload = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await db.auth.getSession();
       
       if (session) { 
-        // 🌟 กรณีเข้าผ่าน Web PC
-        const { data, error } = await supabase.from('employees').select('*').eq('email', session.user.email).maybeSingle();
+        const { data, error } = await db.from('employees').select('*').eq('email', session.user.email).maybeSingle();
         if (error || !data) throw new Error("ไม่พบข้อมูลแอดมิน กรุณาติดต่อผู้ดูแลระบบ");
         user = data; 
         initApp();
       } else { 
-        // 🌟 กรณีเข้าผ่าน LINE LIFF
         await liff.init({ liffId: AppConfig.LIFF_ID });
         if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
         
         const profile = await liff.getProfile();
         
-        // ค้นหาฐานข้อมูล (maybeSingle ช่วยป้องกันระบบค้างเมื่อไม่พบข้อมูล)
-        const { data, error } = await supabase.from('employees').select('*').eq('line_user_id', profile.userId).maybeSingle();
+        const { data, error } = await db.from('employees').select('*').eq('line_user_id', profile.userId).maybeSingle();
         
         if (error || !data || data.status !== 'active') {
-          // ถ้าเป็นพนักงานใหม่ หรือยังไม่อนุมัติ ให้เด้งไปหน้าลงทะเบียน
           window.location.replace('register.html');
         } else { 
           user = data; 
@@ -106,7 +103,7 @@
       }
     } catch (err) {
       document.getElementById('loading').classList.add('hide');
-      alert("เกิดข้อผิดพลาด: " + err.message);
+      alert("เกิดข้อผิดพลาดในการโหลดข้อมูล: " + err.message);
     }
   };
 
@@ -138,7 +135,7 @@
     const y = new Date().getFullYear();
     const startFY = `${y-1}-12-01`; const endFY = `${y}-11-30`;
 
-    const { data: myLeaves } = await supabase.from('leave_requests').select('*')
+    const { data: myLeaves } = await db.from('leave_requests').select('*')
       .eq('line_user_id', user.line_user_id).in('status', ['approved', 'pending_manager', 'pending_supervisor'])
       .gte('start_date', startFY).lte('start_date', endFY);
 
@@ -154,28 +151,31 @@
     document.getElementById('leaveGrid').innerHTML = html + '</div>';
 
     const today = new Date().toISOString().split('T')[0];
-    const { data: team } = await supabase.from('leave_requests').select('name, end_date')
+    const { data: team } = await db.from('leave_requests').select('name, end_date')
       .eq('department', user.department).eq('status', 'approved')
       .lte('start_date', today).gte('end_date', today);
     
     let tHtml = '';
-    if(team.length > 0) team.forEach(t => tHtml += `<div class="history-item" style="border-left:4px solid #f59e0b;"><b>👤 ${t.name}</b><br><small>ถึงวันที่: ${t.end_date}</small></div>`);
-    else tHtml = `<div class="history-item" style="text-align:center; color:#888;">✅ ทีมมาครบ</div>`;
+    if(team && team.length > 0) {
+      team.forEach(t => tHtml += `<div class="history-item" style="border-left:4px solid #f59e0b;"><b>👤 ${t.name}</b><br><small>ถึงวันที่: ${t.end_date}</small></div>`);
+    } else {
+      tHtml = `<div class="history-item" style="text-align:center; color:#888;">✅ ทีมมาครบทุกคน</div>`;
+    }
     document.getElementById('teamList').innerHTML = tHtml;
   }
 
   async function loadHistory() {
-    const { data } = await supabase.from('leave_requests').select('*').eq('line_user_id', user.line_user_id).order('created_at', { ascending: false });
+    const { data } = await db.from('leave_requests').select('*').eq('line_user_id', user.line_user_id).order('created_at', { ascending: false });
     let html = '';
     data.forEach(r => {
       html += `<div class="history-item"><b>${r.leave_type} (${r.duration} วัน)</b><br>📅 ${r.start_date} - ${r.end_date}<br><span style="color:#F59E0B">สถานะ: ${r.status}</span></div>`;
     });
-    document.getElementById('historyList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีประวัติ</div>';
+    document.getElementById('historyList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีประวัติการลา</div>';
   }
 
   async function loadApprovals() {
-    let query = supabase.from('leave_requests').select('*').eq('department', user.department);
-    if (user.position.includes('ผู้จัดการ')) query = supabase.from('leave_requests').select('*').eq('status', 'pending_manager');
+    let query = db.from('leave_requests').select('*').eq('department', user.department);
+    if (user.position.includes('ผู้จัดการ')) query = db.from('leave_requests').select('*').eq('status', 'pending_manager');
     else query = query.eq('status', 'pending_supervisor');
 
     const { data } = await query.order('created_at', { ascending: false });
@@ -187,29 +187,29 @@
         <button class="btn-action" style="background:#EF4444; color:#fff;" onclick="actionLeave('${r.request_id}', 'rejected', '${r.line_user_id}')">❌ ปฏิเสธ</button>
       </div></div>`;
     });
-    document.getElementById('approvalList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีรายการ</div>';
+    document.getElementById('approvalList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีรายการที่ต้องอนุมัติ</div>';
   }
 
   async function loadCancel() {
-    const { data } = await supabase.from('leave_requests').select('*').in('status', ['pending_supervisor', 'pending_manager']).order('created_at', { ascending: false });
+    const { data } = await db.from('leave_requests').select('*').in('status', ['pending_supervisor', 'pending_manager']).order('created_at', { ascending: false });
     let html = '';
     data.forEach(r => {
       html += `<div class="history-item"><b>👤 ${r.name}</b><br>${r.leave_type} (${r.duration} วัน)<br>
       <button class="btn-action" style="background:#fef2f2; color:#ef4444; border:1px solid #fca5a5;" onclick="actionLeave('${r.request_id}', 'cancelled', '${r.line_user_id}')">⛔ บังคับยกเลิก</button></div>`;
     });
-    document.getElementById('cancelList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีรายการ</div>';
+    document.getElementById('cancelList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีรายการที่สามารถยกเลิกได้</div>';
   }
 
   async function actionLeave(reqId, decision, targetUid) {
     if(!confirm('ยืนยันการทำรายการ?')) return;
+    document.getElementById('loadingText').innerText = "กำลังบันทึก...";
     document.getElementById('loading').classList.remove('hide');
     
     let nextStatus = decision;
     if (decision === 'approved' && !user.position.includes('ผู้จัดการ')) nextStatus = 'pending_manager';
 
-    await supabase.from('leave_requests').update({ status: nextStatus }).eq('request_id', reqId);
+    await db.from('leave_requests').update({ status: nextStatus }).eq('request_id', reqId);
     
-    // สะกิด GAS ให้ส่งไลน์
     fetch(AppConfig.GAS_MAILMAN_URL, {
       method: "POST", body: JSON.stringify({
         apiKey: AppConfig.GAS_SECRET,
