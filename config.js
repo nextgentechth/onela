@@ -1,6 +1,6 @@
 const AppConfig = {
   // 🌟 ตั้งค่า Supabase ของคุณที่นี่
-  SUPABASE_URL: "https://quwarpyunbprrsvevtvj.supabase.co/rest/v1/",
+  SUPABASE_URL: "https://quwarpyunbprrsvevtvj.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1d2FycHl1bmJwcnJzdmV2dHZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNDM4MDQsImV4cCI6MjA5ODgxOTgwNH0.dPsPpV1TorY_1nxAzN3eaeGDZR5gz0R_8mGJdyaEXio", 
   LIFF_ID: "2010395332-urAIJlTe",
 
