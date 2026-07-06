@@ -1,8 +1,11 @@
 const AppConfig = {
-  // 🌟 ตั้งค่า Supabase ของคุณที่นี่
-  SUPABASE_URL: "https://quwarpyunbprrsvevtvj.supabase.co",
-  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1d2FycHl1bmJwcnJzdmV2dHZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNDM4MDQsImV4cCI6MjA5ODgxOTgwNH0.dPsPpV1TorY_1nxAzN3eaeGDZR5gz0R_8mGJdyaEXio", 
+  SUPABASE_URL: "https://quwarpyunbprrsvevtvj.supabase.co", // นำมาจาก Supabase
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1d2FycHl1bmJwcnJzdmV2dHZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNDM4MDQsImV4cCI6MjA5ODgxOTgwNH0.dPsPpV1TorY_1nxAzN3eaeGDZR5gz0R_8mGJdyaEXio", // นำมาจาก Supabase
+  
   LIFF_ID: "2010395332-urAIJlTe",
+  
+  GAS_MAILMAN_URL: "https://script.google.com/macros/s/AKfycbwXDto-P77lLX6vz17Gh5D60OsudslM8rDELwR9FDgXem8XqJNa5emlyJ6xzNopH2J0Ig/exec",
+  GAS_SECRET: "COOPKKU_SECRET_2026",
 
   DEPARTMENTS: ['ฝ่ายธุรการ','ฝ่ายการเงิน','ฝ่ายบัญชี','ฝ่ายสินเชื่อ','ฝ่ายทะเบียน','ฝ่ายสวัสดิการ','ฝ่ายบริหาร', 'ฝ่ายทรัพยากรบุคคล'],
   POSITIONS: ['เจ้าหน้าที่','ผู้ช่วยผู้จัดการ','รองผู้จัดการ','ผู้จัดการ'],
