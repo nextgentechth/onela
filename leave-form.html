@@ -11,19 +11,21 @@
   body { font-family:'Sarabun',sans-serif; background:#f4f7fb; padding:20px; }
   .card { background:#fff; padding:20px; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05); max-width:500px; margin:0 auto;}
   label { display:block; margin:10px 0 5px; font-weight:bold; font-size:14px; color:#1a3a6b;}
-  input, select, textarea { width:100%; padding:12px; border:1px solid #ccc; border-radius:8px; font-family:'Sarabun'; margin-bottom:10px;}
-  .btn { width:100%; background:#1a3a6b; color:#fff; padding:15px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; }
+  input, select, textarea { width:100%; padding:12px; border:1px solid #ccc; border-radius:8px; font-family:'Sarabun'; margin-bottom:10px; outline:none;}
+  .btn { width:100%; background:#1a3a6b; color:#fff; padding:15px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:16px;}
+  .header { display:flex; align-items:center; margin-bottom:15px; gap:10px;}
+  .back-btn { text-decoration:none; color:#1a3a6b; font-weight:bold; font-size:18px;}
 </style>
 </head>
 <body>
 <div class="card">
-  <h2 style="color:#1a3a6b; text-align:center;">ฟอร์มยื่นใบลา</h2>
+  <div class="header">
+    <a href="index.html" class="back-btn">⬅️ กลับ</a>
+    <h2 style="color:#1a3a6b; margin:0 auto;">ฟอร์มยื่นใบลา</h2>
+  </div>
+  
   <label>ประเภทการลา</label>
-  <select id="leaveType">
-    <option value="พักร้อน">🏖️ พักร้อน</option>
-    <option value="ลากิจ">🏠 ลากิจ</option>
-    <option value="ลาป่วย">🏥 ลาป่วย</option>
-  </select>
+  <select id="leaveType"></select>
   
   <label>วันที่เริ่ม</label><input type="date" id="startDate">
   <label>ถึงวันที่</label><input type="date" id="endDate">
@@ -33,27 +35,40 @@
 </div>
 
 <script>
-  const supabase = supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
+  const db = window.supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
   let user = null; let holidays = [];
 
   window.onload = async () => {
+    // โหลดประเภทการลา
+    const ltHtml = AppConfig.LEAVE_TYPES.map(l => `<option value="${l.name}">${l.emoji} ${l.name}</option>`).join('');
+    document.getElementById('leaveType').innerHTML = ltHtml;
+
     await liff.init({ liffId: AppConfig.LIFF_ID });
+    if (!liff.isLoggedIn()) return;
+    
     const profile = await liff.getProfile();
-    const { data } = await supabase.from('employees').select('*').eq('line_user_id', profile.userId).single();
+    const { data } = await db.from('employees').select('*').eq('line_user_id', profile.userId).single();
     user = data;
     
-    // โหลดวันหยุดสหกรณ์มาเตรียมไว้หักลบ
-    const { data: h } = await supabase.from('corporate_holidays').select('holiday_date');
-    holidays = h.map(x => x.holiday_date);
+    const { data: h } = await db.from('corporate_holidays').select('holiday_date');
+    if(h) holidays = h.map(x => x.holiday_date);
   };
 
   async function submitLeave() {
     document.getElementById('btnSubmit').innerText = "กำลังประมวลผล...";
+    document.getElementById('btnSubmit').disabled = true;
+
     const sDate = document.getElementById('startDate').value;
     const eDate = document.getElementById('endDate').value;
     const lType = document.getElementById('leaveType').value;
     
-    // คำนวณวันลา หักเสาร์อาทิตย์และวันหยุดสหกรณ์
+    if(!sDate || !eDate) {
+      alert("กรุณาเลือกวันที่ให้ครบถ้วน");
+      document.getElementById('btnSubmit').innerText = "ยืนยันการยื่นลา";
+      document.getElementById('btnSubmit').disabled = false;
+      return;
+    }
+
     let days = 0; let cur = new Date(sDate); const end = new Date(eDate);
     while(cur <= end) {
       const dateStr = cur.toISOString().split('T')[0];
@@ -62,21 +77,30 @@
       cur.setDate(cur.getDate() + 1);
     }
 
-    if(days <= 0) { alert('วันที่เลือกเป็นวันหยุดทั้งหมดครับ'); document.getElementById('btnSubmit').innerText = "ยืนยันการยื่นลา"; return; }
+    if(days <= 0) { 
+      alert('วันที่เลือกเป็นวันหยุดทั้งหมดครับ'); 
+      document.getElementById('btnSubmit').innerText = "ยืนยันการยื่นลา"; 
+      document.getElementById('btnSubmit').disabled = false;
+      return; 
+    }
 
     const reqId = 'LV' + Date.now();
     const initialStatus = user.position === 'เจ้าหน้าที่' ? 'pending_supervisor' : 'pending_manager';
 
-    const { error } = await supabase.from('leave_requests').insert([{
+    const { error } = await db.from('leave_requests').insert([{
       request_id: reqId, line_user_id: user.line_user_id, name: user.name, department: user.department, position: user.position,
       leave_type: lType, start_date: sDate, end_date: eDate, duration: days, period: 'full', reason: document.getElementById('reason').value, status: initialStatus
     }]);
 
-    if(error) { alert('เกิดข้อผิดพลาด'); return; }
+    if(error) { 
+      alert('เกิดข้อผิดพลาด: ' + error.message); 
+      document.getElementById('btnSubmit').innerText = "ยืนยันการยื่นลา";
+      document.getElementById('btnSubmit').disabled = false;
+      return; 
+    }
 
-    // 🌟 ดึงข้อมูลหัวหน้า แล้วสะกิด GAS ให้ส่งไลน์
-    const { data: managers } = await supabase.from('employees').select('line_user_id').eq('department', user.department).in('position', ['ผู้ช่วยผู้จัดการ', 'รองผู้จัดการ', 'ผู้จัดการ']);
-    const managerIds = managers.map(m => m.line_user_id);
+    const { data: managers } = await db.from('employees').select('line_user_id').eq('department', user.department).in('position', ['ผู้ช่วยผู้จัดการ', 'รองผู้จัดการ', 'ผู้จัดการ']);
+    const managerIds = managers ? managers.map(m => m.line_user_id) : [];
 
     fetch(AppConfig.GAS_MAILMAN_URL, {
       method: "POST", body: JSON.stringify({
@@ -85,7 +109,7 @@
       })
     });
 
-    alert('ยื่นใบลาสำเร็จ!'); window.location.href = 'index.html';
+    alert('✅ ยื่นใบลาสำเร็จ!'); window.location.replace('index.html');
   }
 </script>
 </body>
