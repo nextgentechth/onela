@@ -64,35 +64,22 @@
   let holidays = [];
 
   window.onload = async () => {
-    try {
-      // โหลดตัวเลือกการลาจาก Config
-      document.getElementById('leaveType').innerHTML = AppConfig.LEAVE_TYPES.map(l => `<option value="${l.name}">${l.emoji} ${l.name}</option>`).join('');
+    document.getElementById('leaveType').innerHTML = AppConfig.LEAVE_TYPES.map(l => `<option value="${l.name}">${l.emoji} ${l.name}</option>`).join('');
 
+    try {
       await liff.init({ liffId: AppConfig.LIFF_ID });
-      if (!liff.isLoggedIn()) {
-        liff.login({ redirectUri: window.location.href });
-        return;
-      }
+      if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
       
       const profile = await liff.getProfile();
-      
-      // ดึงข้อมูลพนักงาน
       const { data, error } = await db.from('employees').select('*').eq('line_user_id', profile.userId).maybeSingle();
       
-      if (error) throw new Error("Database Error: " + error.message);
-      if (!data) {
-        alert("ไม่พบข้อมูลบัญชีของคุณ กรุณาลงทะเบียนใหม่");
-        window.location.replace('register.html');
-        return;
-      }
+      if (error || !data) throw new Error("ไม่พบข้อมูลบัญชี กรุณาลงทะเบียนใหม่");
       user = data;
       
-      // ดึงข้อมูลวันหยุดสหกรณ์
-      const { data: h, error: hErr } = await db.from('corporate_holidays').select('holiday_date');
-      if (h && !hErr) holidays = h.map(x => x.holiday_date);
-
+      const { data: h } = await db.from('corporate_holidays').select('holiday_date');
+      if (h) holidays = h.map(x => x.holiday_date);
     } catch(err) { 
-      alert("❌ เกิดข้อผิดพลาดในการโหลดระบบ: " + err.message); 
+      alert("❌ " + err.message); 
     }
   };
 
@@ -106,15 +93,10 @@
     if(!sDate || !eDate) return alert("⚠️ กรุณาเลือกวันที่ให้ครบถ้วน");
     if(sDate > eDate) return alert("⚠️ วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่มต้น");
 
-    btn.innerText = "⏳ กำลังบันทึกข้อมูล..."; 
-    btn.disabled = true;
+    btn.innerText = "⏳ กำลังบันทึกข้อมูล..."; btn.disabled = true;
 
     try {
-      let days = 0; 
-      let cur = new Date(sDate); 
-      const end = new Date(eDate);
-      
-      // คำนวณวันลา หักลบเสาร์-อาทิตย์ และวันหยุดสหกรณ์
+      let days = 0; let cur = new Date(sDate); const end = new Date(eDate);
       while(cur <= end) {
         const dateStr = cur.toISOString().split('T')[0];
         const isWeekend = (cur.getDay() === 0 || cur.getDay() === 6);
@@ -124,72 +106,43 @@
 
       if(days <= 0) { 
         alert('⚠️ ช่วงเวลาที่คุณเลือกตรงกับวันหยุดทั้งหมดครับ'); 
-        btn.innerText = "ยืนยันการยื่นลา"; 
-        btn.disabled = false; 
-        return; 
+        btn.innerText = "ยืนยันการยื่นลา"; btn.disabled = false; return; 
       }
 
       const reqId = 'LV' + Date.now();
       const initialStatus = user.position === 'เจ้าหน้าที่' ? 'pending_supervisor' : 'pending_manager';
 
-      // 1. ส่งข้อมูลขึ้น Supabase
-      const payload = {
-        request_id: reqId, 
-        line_user_id: user.line_user_id, 
-        name: user.name, 
-        department: user.department, 
-        position: user.position,
-        leave_type: lType, 
-        start_date: sDate, 
-        end_date: eDate, 
-        duration: days, 
-        period: 'full', 
-        reason: reasonText, 
-        status: initialStatus
-      };
+      // 1. บันทึกลง Supabase
+      const { error } = await db.from('leave_requests').insert([{
+        request_id: reqId, line_user_id: user.line_user_id, name: user.name, department: user.department, position: user.position,
+        leave_type: lType, start_date: sDate, end_date: eDate, duration: days, period: 'full', reason: reasonText, status: initialStatus
+      }]);
 
-      const { error } = await db.from('leave_requests').insert([payload]);
+      if(error) throw new Error(error.message);
 
-      if(error) throw new Error("Supabase Database: " + error.message);
+      // 2. เรียกแจ้งเตือน LINE โดยใช้ text/plain เพื่อข้าม CORS
+      const { data: managers } = await db.from('employees').select('line_user_id').eq('department', user.department).in('position', ['ผู้ช่วยผู้จัดการ', 'รองผู้จัดการ', 'ผู้จัดการ']);
+      const managerIds = managers ? managers.map(m => m.line_user_id) : [];
 
-      // 2. เรียกใช้งานระบบแจ้งเตือน LINE (ปล่อยให้รันแบบ Background ไม่ต้องรอโหลด)
-      sendLineNotification(user, lType, sDate, eDate, days);
+      if (managerIds.length > 0 && AppConfig.GAS_MAILMAN_URL) {
+        // 🌟 จุดสำคัญ: ตั้งค่า headers เป็น text/plain เพื่อแก้บั๊ก 404/400
+        await fetch(AppConfig.GAS_MAILMAN_URL, {
+          method: "POST", 
+          redirect: "follow",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ 
+            apiKey: AppConfig.GAS_SECRET, action: "notify_submit", to: managerIds, 
+            data: { name: user.name, department: user.department, leaveType: lType, startDate: sDate, endDate: eDate, duration: days }
+          })
+        }).catch(e => console.log("Notify API Error (Ignored):", e));
+      }
 
       alert('✅ บันทึกข้อมูลและยื่นใบลาสำเร็จ!'); 
       window.location.replace('index.html');
 
     } catch(err) {
-      alert('❌ เกิดข้อผิดพลาดขณะส่งข้อมูล: \n' + err.message); 
-      btn.innerText = "ยืนยันการยื่นลา"; 
-      btn.disabled = false; 
-    }
-  }
-
-  // ฟังก์ชันแยกสำหรับส่ง LINE ป้องกันปัญหา 404/400 จาก Google Apps Script ทำให้แอปค้าง
-  async function sendLineNotification(usr, type, start, end, duration) {
-    try {
-      if (!AppConfig.GAS_MAILMAN_URL) return;
-      
-      const { data: managers } = await db.from('employees')
-        .select('line_user_id')
-        .eq('department', usr.department)
-        .in('position', ['ผู้ช่วยผู้จัดการ', 'รองผู้จัดการ', 'ผู้จัดการ']);
-        
-      const managerIds = managers ? managers.map(m => m.line_user_id) : [];
-      
-      if (managerIds.length > 0) {
-        await fetch(AppConfig.GAS_MAILMAN_URL, {
-          method: "POST", 
-          body: JSON.stringify({ 
-            apiKey: AppConfig.GAS_SECRET, 
-            action: "notify_submit", 
-            to: managerIds, 
-            data: { name: usr.name, department: usr.department, leaveType: type, startDate: start, endDate: end, duration: duration }
-          })
-        });
-      }
-    } catch(e) {
-      console.log("LINE Notification Note: ", e.message);
+      alert('❌ ขัดข้อง: ' + err.message); 
+      btn.innerText = "ยืนยันการยื่นลา"; btn.disabled = false; 
     }
   }
 </script>
