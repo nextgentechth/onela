@@ -20,8 +20,8 @@
   label { display:block; margin-bottom:8px; font-weight:600; font-size:14px; color:#475569;}
   input, select, textarea { width:100%; padding:14px; border:1px solid var(--border); border-radius:12px; font-size:15px; outline:none; transition:0.3s; background:#fff;}
   input:focus, select:focus, textarea:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(30,58,138,0.1); }
-  .date-row { display:flex; gap:15px; }
-  .date-row .form-group { flex:1; }
+  .date-row { display:flex; gap:15px; flex-wrap:wrap;}
+  .date-row .form-group { flex:1; min-width: 140px;}
   .btn { width:100%; background:var(--primary); color:#fff; padding:16px; border:none; border-radius:12px; font-weight:700; font-size:16px; cursor:pointer; transition:0.2s; box-shadow:0 4px 12px rgba(30,58,138,0.2);}
   .btn:hover { opacity:0.9; transform:translateY(-2px); }
   .btn:disabled { background:#94a3b8; cursor:not-allowed; transform:none; box-shadow:none;}
@@ -60,20 +60,40 @@
 
 <script>
   const db = window.supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
-  let user = null; let holidays = [];
+  let user = null; 
+  let holidays = [];
 
   window.onload = async () => {
-    document.getElementById('leaveType').innerHTML = AppConfig.LEAVE_TYPES.map(l => `<option value="${l.name}">${l.emoji} ${l.name}</option>`).join('');
-
     try {
+      // โหลดตัวเลือกการลาจาก Config
+      document.getElementById('leaveType').innerHTML = AppConfig.LEAVE_TYPES.map(l => `<option value="${l.name}">${l.emoji} ${l.name}</option>`).join('');
+
       await liff.init({ liffId: AppConfig.LIFF_ID });
-      if (!liff.isLoggedIn()) return;
+      if (!liff.isLoggedIn()) {
+        liff.login({ redirectUri: window.location.href });
+        return;
+      }
+      
       const profile = await liff.getProfile();
-      const { data } = await db.from('employees').select('*').eq('line_user_id', profile.userId).single();
+      
+      // ดึงข้อมูลพนักงาน
+      const { data, error } = await db.from('employees').select('*').eq('line_user_id', profile.userId).maybeSingle();
+      
+      if (error) throw new Error("Database Error: " + error.message);
+      if (!data) {
+        alert("ไม่พบข้อมูลบัญชีของคุณ กรุณาลงทะเบียนใหม่");
+        window.location.replace('register.html');
+        return;
+      }
       user = data;
-      const { data: h } = await db.from('corporate_holidays').select('holiday_date');
-      if(h) holidays = h.map(x => x.holiday_date);
-    } catch(err) { console.error("Init Error", err); }
+      
+      // ดึงข้อมูลวันหยุดสหกรณ์
+      const { data: h, error: hErr } = await db.from('corporate_holidays').select('holiday_date');
+      if (h && !hErr) holidays = h.map(x => x.holiday_date);
+
+    } catch(err) { 
+      alert("❌ เกิดข้อผิดพลาดในการโหลดระบบ: " + err.message); 
+    }
   };
 
   async function submitLeave() {
@@ -81,51 +101,96 @@
     const sDate = document.getElementById('startDate').value;
     const eDate = document.getElementById('endDate').value;
     const lType = document.getElementById('leaveType').value;
+    const reasonText = document.getElementById('reason').value || "-";
     
-    if(!sDate || !eDate) return alert("กรุณาเลือกวันที่ให้ครบถ้วน");
-    if(sDate > eDate) return alert("วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่มต้น");
+    if(!sDate || !eDate) return alert("⚠️ กรุณาเลือกวันที่ให้ครบถ้วน");
+    if(sDate > eDate) return alert("⚠️ วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่มต้น");
 
-    btn.innerText = "⏳ กำลังประมวลผล..."; btn.disabled = true;
+    btn.innerText = "⏳ กำลังบันทึกข้อมูล..."; 
+    btn.disabled = true;
 
-    let days = 0; let cur = new Date(sDate); const end = new Date(eDate);
-    while(cur <= end) {
-      const dateStr = cur.toISOString().split('T')[0];
-      const isWeekend = (cur.getDay() === 0 || cur.getDay() === 6);
-      if(!isWeekend && !holidays.includes(dateStr)) days++;
-      cur.setDate(cur.getDate() + 1);
-    }
-
-    if(days <= 0) { 
-      alert('ช่วงเวลาที่คุณเลือกตรงกับวันหยุดทั้งหมดครับ'); 
-      btn.innerText = "ยืนยันการยื่นลา"; btn.disabled = false; return; 
-    }
-
-    const reqId = 'LV' + Date.now();
-    const initialStatus = user.position === 'เจ้าหน้าที่' ? 'pending_supervisor' : 'pending_manager';
-
-    const { error } = await db.from('leave_requests').insert([{
-      request_id: reqId, line_user_id: user.line_user_id, name: user.name, department: user.department, position: user.position,
-      leave_type: lType, start_date: sDate, end_date: eDate, duration: days, period: 'full', reason: document.getElementById('reason').value, status: initialStatus
-    }]);
-
-    if(error) { 
-      alert('เกิดข้อผิดพลาด: ' + error.message); 
-      btn.innerText = "ยืนยันการยื่นลา"; btn.disabled = false; return; 
-    }
-
-    // 🌟 ดัก Error กรณีส่ง LINE ไม่สำเร็จ ไม่ให้ระบบพังหรือขึ้น 404
     try {
-      const { data: managers } = await db.from('employees').select('line_user_id').eq('department', user.department).in('position', ['ผู้ช่วยผู้จัดการ', 'รองผู้จัดการ', 'ผู้จัดการ']);
+      let days = 0; 
+      let cur = new Date(sDate); 
+      const end = new Date(eDate);
+      
+      // คำนวณวันลา หักลบเสาร์-อาทิตย์ และวันหยุดสหกรณ์
+      while(cur <= end) {
+        const dateStr = cur.toISOString().split('T')[0];
+        const isWeekend = (cur.getDay() === 0 || cur.getDay() === 6);
+        if(!isWeekend && !holidays.includes(dateStr)) days++;
+        cur.setDate(cur.getDate() + 1);
+      }
+
+      if(days <= 0) { 
+        alert('⚠️ ช่วงเวลาที่คุณเลือกตรงกับวันหยุดทั้งหมดครับ'); 
+        btn.innerText = "ยืนยันการยื่นลา"; 
+        btn.disabled = false; 
+        return; 
+      }
+
+      const reqId = 'LV' + Date.now();
+      const initialStatus = user.position === 'เจ้าหน้าที่' ? 'pending_supervisor' : 'pending_manager';
+
+      // 1. ส่งข้อมูลขึ้น Supabase
+      const payload = {
+        request_id: reqId, 
+        line_user_id: user.line_user_id, 
+        name: user.name, 
+        department: user.department, 
+        position: user.position,
+        leave_type: lType, 
+        start_date: sDate, 
+        end_date: eDate, 
+        duration: days, 
+        period: 'full', 
+        reason: reasonText, 
+        status: initialStatus
+      };
+
+      const { error } = await db.from('leave_requests').insert([payload]);
+
+      if(error) throw new Error("Supabase Database: " + error.message);
+
+      // 2. เรียกใช้งานระบบแจ้งเตือน LINE (ปล่อยให้รันแบบ Background ไม่ต้องรอโหลด)
+      sendLineNotification(user, lType, sDate, eDate, days);
+
+      alert('✅ บันทึกข้อมูลและยื่นใบลาสำเร็จ!'); 
+      window.location.replace('index.html');
+
+    } catch(err) {
+      alert('❌ เกิดข้อผิดพลาดขณะส่งข้อมูล: \n' + err.message); 
+      btn.innerText = "ยืนยันการยื่นลา"; 
+      btn.disabled = false; 
+    }
+  }
+
+  // ฟังก์ชันแยกสำหรับส่ง LINE ป้องกันปัญหา 404/400 จาก Google Apps Script ทำให้แอปค้าง
+  async function sendLineNotification(usr, type, start, end, duration) {
+    try {
+      if (!AppConfig.GAS_MAILMAN_URL) return;
+      
+      const { data: managers } = await db.from('employees')
+        .select('line_user_id')
+        .eq('department', usr.department)
+        .in('position', ['ผู้ช่วยผู้จัดการ', 'รองผู้จัดการ', 'ผู้จัดการ']);
+        
       const managerIds = managers ? managers.map(m => m.line_user_id) : [];
-      if (AppConfig.GAS_MAILMAN_URL && managerIds.length > 0) {
+      
+      if (managerIds.length > 0) {
         await fetch(AppConfig.GAS_MAILMAN_URL, {
-          method: "POST", mode: 'no-cors', // ใส่ no-cors เพื่อแก้ปัญหา Browser บล็อก
-          body: JSON.stringify({ apiKey: AppConfig.GAS_SECRET, action: "notify_submit", to: managerIds, data: { name: user.name, department: user.department, leaveType: lType, startDate: sDate, endDate: eDate, duration: days }})
+          method: "POST", 
+          body: JSON.stringify({ 
+            apiKey: AppConfig.GAS_SECRET, 
+            action: "notify_submit", 
+            to: managerIds, 
+            data: { name: usr.name, department: usr.department, leaveType: type, startDate: start, endDate: end, duration: duration }
+          })
         });
       }
-    } catch (e) { console.log("LINE Alert Skipped"); }
-
-    alert('✅ ยื่นใบลาสำเร็จ!'); window.location.replace('index.html');
+    } catch(e) {
+      console.log("LINE Notification Note: ", e.message);
+    }
   }
 </script>
 </body>
