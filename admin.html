@@ -6,32 +6,43 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
-  body { font-family:'Sarabun',sans-serif; background:#f4f7fb; margin:0; padding:20px; }
-  .header { display:flex; justify-content:space-between; align-items:center; background:#1a3a6b; color:#fff; padding:15px 20px; border-radius:12px; margin-bottom:20px; }
-  .card { background:#fff; padding:20px; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05); overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; min-width:600px; } 
-  th, td { padding:12px; border-bottom:1px solid #eee; text-align:left; font-size:14px; }
-  th { background:#f8fafc; color:#1a3a6b; }
-  .btn { padding:8px 15px; border:none; border-radius:6px; cursor:pointer; color:#fff; font-family:'Sarabun'; text-decoration:none; }
-  .btn-out { background:#64748b; } .btn-red { background:#EF4444; }
-  select, input[type="checkbox"] { cursor:pointer; }
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap');
+  :root { --primary:#1e3a8a; --bg:#f8fafc; --card:#ffffff; --text:#334155; --border:#e2e8f0; }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Sarabun',sans-serif; }
+  body { background:var(--bg); color:var(--text); padding:20px; }
+  .container { max-width:1200px; margin:0 auto; }
+  .header { display:flex; justify-content:space-between; align-items:center; background:var(--primary); color:#fff; padding:20px; border-radius:16px; margin-bottom:20px; box-shadow:0 4px 15px rgba(30,58,138,0.1); flex-wrap:wrap; gap:10px;}
+  .header h2 { margin:0; font-size:20px; }
+  .actions { display:flex; gap:10px; }
+  .btn { padding:10px 16px; border:none; border-radius:8px; cursor:pointer; color:#fff; font-weight:600; font-size:14px; text-decoration:none; }
+  .btn-back { background:#f59e0b; } .btn-out { background:#64748b; } .btn-red { background:#ef4444; }
+  .card { background:var(--card); padding:24px; border-radius:16px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); }
+  .table-responsive { width:100%; overflow-x:auto; border-radius:8px; border:1px solid var(--border); }
+  table { width:100%; border-collapse:collapse; min-width:800px; } 
+  th, td { padding:14px; border-bottom:1px solid var(--border); text-align:left; font-size:14px; }
+  th { background:#f1f5f9; color:var(--primary); font-weight:700; white-space:nowrap; }
+  select, input[type="checkbox"] { cursor:pointer; accent-color:var(--primary); }
+  select { padding:8px 12px; border-radius:6px; border:1px solid var(--border); font-family:'Sarabun'; outline:none; }
 </style>
 </head>
 <body>
-<div class="header">
-  <h2>⚙️ ระบบจัดการหลังบ้าน (Super Admin)</h2>
-  <div>
-    <a href="index.html" class="btn" style="background:#c8960c; margin-right:10px;">🏠 กลับหน้าเว็บ</a>
-    <button class="btn btn-out" onclick="logout()">ออกจากระบบ</button>
+<div class="container">
+  <div class="header">
+    <h2>⚙️ ระบบจัดการหลังบ้าน (Super Admin)</h2>
+    <div class="actions">
+      <a href="index.html" class="btn btn-back">🏠 กลับหน้าเว็บ</a>
+      <button class="btn btn-out" onclick="logout()">🚪 ออกจากระบบ</button>
+    </div>
   </div>
-</div>
 
-<div class="card">
-  <h3 style="margin-bottom:15px;">👥 จัดการพนักงานและสิทธิ์</h3>
-  <table id="empTable">
-    <tr><th>ชื่อ-สกุล</th><th>แผนก/ตำแหน่ง</th><th>สถานะบัญชี</th><th>สิทธิ์ HR/รายงาน</th><th>สิทธิ์ Admin</th><th>จัดการ</th></tr>
-  </table>
+  <div class="card">
+    <h3 style="margin-bottom:15px; color:var(--primary);">👥 จัดการพนักงานและสิทธิ์</h3>
+    <div class="table-responsive">
+      <table id="empTable">
+        <tr><th>ชื่อ-สกุล</th><th>แผนก/ตำแหน่ง</th><th>สถานะบัญชี</th><th>สิทธิ์ HR/รายงาน</th><th>สิทธิ์ Admin</th><th>จัดการ</th></tr>
+      </table>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -40,7 +51,6 @@
   window.onload = async () => {
     const { data: { session } } = await db.auth.getSession();
     if (!session) return window.location.replace('login.html');
-    
     const { data: emp } = await db.from('employees').select('*').eq('email', session.user.email).maybeSingle();
     if (!emp || !emp.is_admin) { alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้'); window.location.replace('index.html'); return; }
     loadEmployees();
@@ -49,43 +59,34 @@
   async function loadEmployees() {
     const { data } = await db.from('employees').select('*').order('created_at', { ascending: false });
     let html = '<tr><th>ชื่อ-สกุล</th><th>แผนก/ตำแหน่ง</th><th>สถานะบัญชี</th><th>สิทธิ์ HR/รายงาน</th><th>สิทธิ์ Admin</th><th>จัดการ</th></tr>';
-    
     if(data) {
       data.forEach(e => {
         html += `<tr>
-          <td><b>${e.name}</b><br><small>${e.email || '-'}</small></td>
-          <td>${e.department}<br><small>${e.position}</small></td>
-          <td>
-            <select onchange="updateEmp('${e.line_user_id}', 'status', this.value)" style="padding:6px; border-radius:6px;">
+          <td><b>${e.name}</b><br><span style="color:#64748b; font-size:12px;">${e.email || '-'}</span></td>
+          <td>${e.department}<br><span style="color:#64748b; font-size:12px;">${e.position}</span></td>
+          <td><select onchange="updateEmp('${e.line_user_id}', 'status', this.value)">
               <option value="pending" ${e.status==='pending'?'selected':''}>⏳ รออนุมัติ</option>
               <option value="active" ${e.status==='active'?'selected':''}>✅ Active</option>
-            </select>
-          </td>
+            </select></td>
           <td>
-            <label><input type="checkbox" ${e.is_hr?'checked':''} onchange="updateEmp('${e.line_user_id}', 'is_hr', this.checked)"> HR</label><br>
-            <label><input type="checkbox" ${e.can_view_report?'checked':''} onchange="updateEmp('${e.line_user_id}', 'can_view_report', this.checked)"> ดูรายงาน</label>
+            <label style="display:block; margin-bottom:5px;"><input type="checkbox" ${e.is_hr?'checked':''} onchange="updateEmp('${e.line_user_id}', 'is_hr', this.checked)"> ฝ่ายบุคคล (HR)</label>
+            <label><input type="checkbox" ${e.can_view_report?'checked':''} onchange="updateEmp('${e.line_user_id}', 'can_view_report', this.checked)"> ดูรายงานได้</label>
           </td>
-          <td>
-            <label><input type="checkbox" ${e.is_admin?'checked':''} onchange="updateEmp('${e.line_user_id}', 'is_admin', this.checked)"> Admin</label>
-          </td>
-          <td><button class="btn btn-red" onclick="deleteEmp('${e.line_user_id}')">ลบ</button></td>
+          <td><label><input type="checkbox" ${e.is_admin?'checked':''} onchange="updateEmp('${e.line_user_id}', 'is_admin', this.checked)"> Admin</label></td>
+          <td><button class="btn btn-red" onclick="deleteEmp('${e.line_user_id}')">🗑️ ลบ</button></td>
         </tr>`;
       });
     }
     document.getElementById('empTable').innerHTML = html;
   }
 
-  async function updateEmp(uid, field, val) {
-    await db.from('employees').update({ [field]: val }).eq('line_user_id', uid);
-  }
-
+  async function updateEmp(uid, field, val) { await db.from('employees').update({ [field]: val }).eq('line_user_id', uid); }
   async function deleteEmp(uid) {
     if(!confirm('ยืนยันการลบพนักงาน? ประวัติการลาของคนนี้จะถูกลบด้วย!')) return;
     await db.from('leave_requests').delete().eq('line_user_id', uid);
     await db.from('employees').delete().eq('line_user_id', uid);
     loadEmployees();
   }
-
   async function logout() { await db.auth.signOut(); window.location.replace('login.html'); }
 </script>
 </body>
