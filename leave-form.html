@@ -1,35 +1,59 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ยื่นใบลา</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ยื่นใบลา — COOPKKU</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
-  body { font-family:'Sarabun',sans-serif; background:#f4f7fb; padding:20px; }
-  .card { background:#fff; padding:20px; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05); max-width:500px; margin:0 auto;}
-  label { display:block; margin:10px 0 5px; font-weight:bold; font-size:14px; color:#1a3a6b;}
-  input, select, textarea { width:100%; padding:12px; border:1px solid #ccc; border-radius:8px; font-family:'Sarabun'; margin-bottom:10px; outline:none;}
-  .btn { width:100%; background:#1a3a6b; color:#fff; padding:15px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:16px;}
-  .header { display:flex; align-items:center; margin-bottom:15px; gap:10px;}
-  .back-btn { text-decoration:none; color:#1a3a6b; font-weight:bold; font-size:18px;}
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap');
+  :root { --primary:#1e3a8a; --bg:#f1f5f9; --card:#ffffff; --text:#334155; --border:#cbd5e1; }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Sarabun',sans-serif; }
+  body { background:var(--bg); color:var(--text); display:flex; justify-content:center; padding:20px 15px; min-height:100vh;}
+  .card { background:var(--card); padding:30px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.05); width:100%; max-width:450px; height:fit-content;}
+  .header { display:flex; align-items:center; margin-bottom:25px; gap:15px; border-bottom:2px solid var(--bg); padding-bottom:15px;}
+  .back-btn { text-decoration:none; color:var(--primary); font-size:24px; display:flex; align-items:center; justify-content:center; width:40px; height:40px; background:var(--bg); border-radius:50%; transition:0.2s;}
+  .back-btn:hover { background:#e2e8f0; }
+  h2 { color:var(--primary); font-size:20px; flex:1; text-align:center; margin-right:40px;}
+  .form-group { margin-bottom:20px; }
+  label { display:block; margin-bottom:8px; font-weight:600; font-size:14px; color:#475569;}
+  input, select, textarea { width:100%; padding:14px; border:1px solid var(--border); border-radius:12px; font-size:15px; outline:none; transition:0.3s; background:#fff;}
+  input:focus, select:focus, textarea:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(30,58,138,0.1); }
+  .date-row { display:flex; gap:15px; }
+  .date-row .form-group { flex:1; }
+  .btn { width:100%; background:var(--primary); color:#fff; padding:16px; border:none; border-radius:12px; font-weight:700; font-size:16px; cursor:pointer; transition:0.2s; box-shadow:0 4px 12px rgba(30,58,138,0.2);}
+  .btn:hover { opacity:0.9; transform:translateY(-2px); }
+  .btn:disabled { background:#94a3b8; cursor:not-allowed; transform:none; box-shadow:none;}
 </style>
 </head>
 <body>
 <div class="card">
   <div class="header">
-    <a href="index.html" class="back-btn">⬅️ กลับ</a>
-    <h2 style="color:#1a3a6b; margin:0 auto;">ฟอร์มยื่นใบลา</h2>
+    <a href="index.html" class="back-btn">←</a>
+    <h2>ฟอร์มยื่นใบลา</h2>
   </div>
   
-  <label>ประเภทการลา</label>
-  <select id="leaveType"></select>
+  <div class="form-group">
+    <label>ประเภทการลา</label>
+    <select id="leaveType"></select>
+  </div>
   
-  <label>วันที่เริ่ม</label><input type="date" id="startDate">
-  <label>ถึงวันที่</label><input type="date" id="endDate">
-  <label>เหตุผลการลา</label><textarea id="reason" rows="3"></textarea>
+  <div class="date-row">
+    <div class="form-group">
+      <label>วันที่เริ่มลา</label>
+      <input type="date" id="startDate" required>
+    </div>
+    <div class="form-group">
+      <label>ถึงวันที่</label>
+      <input type="date" id="endDate" required>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>เหตุผลการลา</label>
+    <textarea id="reason" rows="3" placeholder="ระบุเหตุผล (ถ้ามี)..."></textarea>
+  </div>
   
   <button class="btn" onclick="submitLeave()" id="btnSubmit">ยืนยันการยื่นลา</button>
 </div>
@@ -39,35 +63,29 @@
   let user = null; let holidays = [];
 
   window.onload = async () => {
-    // โหลดประเภทการลา
-    const ltHtml = AppConfig.LEAVE_TYPES.map(l => `<option value="${l.name}">${l.emoji} ${l.name}</option>`).join('');
-    document.getElementById('leaveType').innerHTML = ltHtml;
+    document.getElementById('leaveType').innerHTML = AppConfig.LEAVE_TYPES.map(l => `<option value="${l.name}">${l.emoji} ${l.name}</option>`).join('');
 
-    await liff.init({ liffId: AppConfig.LIFF_ID });
-    if (!liff.isLoggedIn()) return;
-    
-    const profile = await liff.getProfile();
-    const { data } = await db.from('employees').select('*').eq('line_user_id', profile.userId).single();
-    user = data;
-    
-    const { data: h } = await db.from('corporate_holidays').select('holiday_date');
-    if(h) holidays = h.map(x => x.holiday_date);
+    try {
+      await liff.init({ liffId: AppConfig.LIFF_ID });
+      if (!liff.isLoggedIn()) return;
+      const profile = await liff.getProfile();
+      const { data } = await db.from('employees').select('*').eq('line_user_id', profile.userId).single();
+      user = data;
+      const { data: h } = await db.from('corporate_holidays').select('holiday_date');
+      if(h) holidays = h.map(x => x.holiday_date);
+    } catch(err) { console.error("Init Error", err); }
   };
 
   async function submitLeave() {
-    document.getElementById('btnSubmit').innerText = "กำลังประมวลผล...";
-    document.getElementById('btnSubmit').disabled = true;
-
+    const btn = document.getElementById('btnSubmit');
     const sDate = document.getElementById('startDate').value;
     const eDate = document.getElementById('endDate').value;
     const lType = document.getElementById('leaveType').value;
     
-    if(!sDate || !eDate) {
-      alert("กรุณาเลือกวันที่ให้ครบถ้วน");
-      document.getElementById('btnSubmit').innerText = "ยืนยันการยื่นลา";
-      document.getElementById('btnSubmit').disabled = false;
-      return;
-    }
+    if(!sDate || !eDate) return alert("กรุณาเลือกวันที่ให้ครบถ้วน");
+    if(sDate > eDate) return alert("วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่มต้น");
+
+    btn.innerText = "⏳ กำลังประมวลผล..."; btn.disabled = true;
 
     let days = 0; let cur = new Date(sDate); const end = new Date(eDate);
     while(cur <= end) {
@@ -78,10 +96,8 @@
     }
 
     if(days <= 0) { 
-      alert('วันที่เลือกเป็นวันหยุดทั้งหมดครับ'); 
-      document.getElementById('btnSubmit').innerText = "ยืนยันการยื่นลา"; 
-      document.getElementById('btnSubmit').disabled = false;
-      return; 
+      alert('ช่วงเวลาที่คุณเลือกตรงกับวันหยุดทั้งหมดครับ'); 
+      btn.innerText = "ยืนยันการยื่นลา"; btn.disabled = false; return; 
     }
 
     const reqId = 'LV' + Date.now();
@@ -94,20 +110,20 @@
 
     if(error) { 
       alert('เกิดข้อผิดพลาด: ' + error.message); 
-      document.getElementById('btnSubmit').innerText = "ยืนยันการยื่นลา";
-      document.getElementById('btnSubmit').disabled = false;
-      return; 
+      btn.innerText = "ยืนยันการยื่นลา"; btn.disabled = false; return; 
     }
 
-    const { data: managers } = await db.from('employees').select('line_user_id').eq('department', user.department).in('position', ['ผู้ช่วยผู้จัดการ', 'รองผู้จัดการ', 'ผู้จัดการ']);
-    const managerIds = managers ? managers.map(m => m.line_user_id) : [];
-
-    fetch(AppConfig.GAS_MAILMAN_URL, {
-      method: "POST", body: JSON.stringify({
-        apiKey: AppConfig.GAS_SECRET, action: "notify_submit",
-        to: managerIds, data: { name: user.name, department: user.department, leaveType: lType, startDate: sDate, endDate: eDate, duration: days }
-      })
-    });
+    // 🌟 ดัก Error กรณีส่ง LINE ไม่สำเร็จ ไม่ให้ระบบพังหรือขึ้น 404
+    try {
+      const { data: managers } = await db.from('employees').select('line_user_id').eq('department', user.department).in('position', ['ผู้ช่วยผู้จัดการ', 'รองผู้จัดการ', 'ผู้จัดการ']);
+      const managerIds = managers ? managers.map(m => m.line_user_id) : [];
+      if (AppConfig.GAS_MAILMAN_URL && managerIds.length > 0) {
+        await fetch(AppConfig.GAS_MAILMAN_URL, {
+          method: "POST", mode: 'no-cors', // ใส่ no-cors เพื่อแก้ปัญหา Browser บล็อก
+          body: JSON.stringify({ apiKey: AppConfig.GAS_SECRET, action: "notify_submit", to: managerIds, data: { name: user.name, department: user.department, leaveType: lType, startDate: sDate, endDate: eDate, duration: days }})
+        });
+      }
+    } catch (e) { console.log("LINE Alert Skipped"); }
 
     alert('✅ ยื่นใบลาสำเร็จ!'); window.location.replace('index.html');
   }
