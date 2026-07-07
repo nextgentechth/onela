@@ -7,60 +7,86 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Sarabun',sans-serif; background:#f4f7fb; color:#333; padding-bottom: 70px;}
-  .app-container { max-width: 500px; margin: 0 auto; min-height: 100vh; background: #f4f7fb; position: relative;}
-  .header { background:#1a3a6b; color:#fff; padding:16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50;}
-  .header img { height: 32px; border-radius: 4px; background:#fff; padding:2px;}
-  .profile-card { background:linear-gradient(135deg,#1a3a6b,#2a5298); margin:16px; border-radius:16px; padding:20px; color:#fff; display:flex; align-items:center; gap:15px; box-shadow:0 6px 16px rgba(26,58,107,0.2); }
-  .avatar { width:60px; height:60px; border-radius:50%; border:3px solid #e0e7ff; background:#ffffff30;}
-  .btn-primary { display:block; text-align:center; background:#c8960c; color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; text-decoration:none; margin:16px; box-shadow:0 4px 10px rgba(200,150,12,0.3);}
-  .card { background:#fff; margin:16px; padding:20px; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
-  .card-title { font-size:16px; font-weight:700; color:#1a3a6b; margin-bottom:15px;}
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap');
+  :root { --primary:#1e3a8a; --primary-light:#eff6ff; --accent:#f59e0b; --bg:#f1f5f9; --card:#ffffff; --text:#334155; --text-light:#64748b; }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Sarabun',sans-serif; -webkit-tap-highlight-color:transparent;}
+  body { background:var(--bg); color:var(--text); padding-bottom:80px; }
+  .app-container { max-width:600px; margin:0 auto; min-height:100vh; position:relative; background:var(--bg); }
+  .header { background:var(--primary); color:#fff; padding:20px; display:flex; align-items:center; gap:15px; position:sticky; top:0; z-index:50; box-shadow:0 4px 15px rgba(30,58,138,0.15);}
+  .header img { height:36px; border-radius:8px; background:#fff; padding:3px;}
+  .header h1 { font-size:18px; font-weight:700; margin:0;}
   
-  .dashboard-stats { display: flex; flex-direction: column; gap: 12px; }
-  .lv-card { background: #fff; border: 1px solid #edf2f7; border-radius: 12px; padding: 15px; border-left:4px solid #3b82f6;}
-  .lv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight:bold;}
-  .lv-details { display: flex; justify-content: space-between; text-align: center; background: #f8fafc; border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size:13px;}
-  .val-used { color: #ef4444; font-weight:bold;} .val-remain { color: #10b981; font-weight:bold;}
-  .lv-progress-bg { height: 6px; background: #e2e8f0; border-radius: 6px; width: 100%;}
-  .lv-progress-fill { height: 100%; border-radius: 6px; background:#3b82f6; }
+  .profile-card { background:linear-gradient(135deg,var(--primary),#3b82f6); margin:20px; border-radius:20px; padding:25px; color:#fff; display:flex; align-items:center; gap:15px; box-shadow:0 10px 25px rgba(30,58,138,0.2); }
+  .avatar { width:70px; height:70px; border-radius:50%; border:3px solid rgba(255,255,255,0.3); background:#ffffff20;}
+  .profile-info h2 { font-size:20px; font-weight:700; margin-bottom:5px;}
+  .profile-info p { font-size:14px; opacity:0.9;}
+  
+  .btn-primary { display:flex; justify-content:center; align-items:center; background:var(--accent); color:#fff; border-radius:16px; padding:18px; font-size:16px; font-weight:700; text-decoration:none; margin:0 20px 20px; box-shadow:0 8px 20px rgba(245,158,11,0.25); transition:0.2s;}
+  .btn-primary:active { transform:scale(0.98); }
+  
+  .section-title { font-size:16px; font-weight:700; color:var(--primary); margin:0 20px 10px; display:flex; align-items:center; gap:8px;}
+  .card-container { padding:0 20px 20px; display:flex; flex-direction:column; gap:12px; }
+  
+  .stat-card { background:var(--card); border-radius:16px; padding:18px; border-left:5px solid #3b82f6; box-shadow:0 4px 10px rgba(0,0,0,0.03);}
+  .stat-header { display:flex; justify-content:space-between; font-weight:700; margin-bottom:12px; font-size:15px;}
+  .stat-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; text-align:center; background:var(--bg); border-radius:12px; padding:12px; margin-bottom:12px; font-size:13px;}
+  .val-used { color:#ef4444; font-weight:700; font-size:16px;} .val-remain { color:#10b981; font-weight:700; font-size:16px;}
+  .progress-bg { height:8px; background:#e2e8f0; border-radius:8px; width:100%; overflow:hidden;}
+  .progress-fill { height:100%; border-radius:8px; background:#3b82f6; }
 
-  .history-item { padding:15px; border-radius:12px; margin-bottom:10px; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.02); border:1px solid #f1f5f9;}
-  .btn-action { width:100%; padding:10px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px;}
+  .list-card { background:var(--card); padding:16px; border-radius:16px; box-shadow:0 4px 10px rgba(0,0,0,0.03); border:1px solid #f1f5f9; position:relative;}
+  .list-card h4 { font-size:15px; font-weight:700; color:#1e293b; margin-bottom:4px;}
+  .list-card p { font-size:13px; color:var(--text-light);}
+  .status-badge { position:absolute; top:16px; right:16px; font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; background:var(--primary-light); color:var(--primary);}
+  .btn-action-group { display:flex; gap:10px; margin-top:15px;}
+  .btn-action { flex:1; padding:12px; border:none; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;}
+  .btn-approve { background:#10b981; color:#fff;} .btn-reject { background:#ef4444; color:#fff;}
   
-  .bottom-nav { position:fixed; bottom:0; width:100%; max-width:500px; background:#fff; display:flex; box-shadow:0 -4px 12px rgba(0,0,0,0.05); z-index:100; overflow-x:auto;}
-  .nav-item { flex:1; min-width:65px; text-align:center; padding:12px 0; color:#9ca3af; font-size:10px; cursor:pointer; font-weight:600;}
-  .nav-item.active { color:#1a3a6b; border-top:3px solid #1a3a6b; background:#f8fafc;}
-  .nav-icon { font-size:18px; display:block; margin-bottom:2px;}
-  .hide { display: none !important; }
+  .bottom-nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:600px; background:#fff; display:flex; box-shadow:0 -5px 20px rgba(0,0,0,0.05); z-index:100; padding-bottom:env(safe-area-inset-bottom); border-top-left-radius:24px; border-top-right-radius:24px;}
+  .nav-item { flex:1; padding:15px 0; text-align:center; color:#94a3b8; font-size:11px; font-weight:600; cursor:pointer; transition:0.3s;}
+  .nav-item.active { color:var(--primary); }
+  .nav-icon { font-size:22px; display:block; margin-bottom:4px;}
+  .hide { display:none !important; }
   .overlay { position:fixed; inset:0; background:rgba(255,255,255,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
 </style>
 </head>
 <body>
 <div class="app-container">
-  <div class="header"><img src="https://www.coopkku.com/info/html/images/logo1.png"> <span style="font-size:16px;">ระบบลาออนไลน์</span></div>
-  <div id="loading" class="overlay"><div style="font-size:40px;">⏳</div><h3 style="color:#1a3a6b; margin-top:10px;" id="loadingText">กำลังประมวลผล...</h3></div>
+  <div class="header">
+    <img src="https://www.coopkku.com/info/html/images/logo1.png">
+    <h1>ระบบลาออนไลน์</h1>
+  </div>
+  
+  <div id="loading" class="overlay"><div style="font-size:45px; margin-bottom:15px;">⏳</div><h3 style="color:var(--primary);" id="loadingText">กำลังประมวลผล...</h3></div>
 
   <div id="pg-home">
     <div class="profile-card">
       <div class="avatar"></div>
-      <div><h2 id="uName" style="font-size:18px; margin-bottom:4px;">-</h2><p id="uPos" style="font-size:13px; opacity:0.9;">-</p></div>
+      <div class="profile-info"><h2 id="uName">โหลดข้อมูล...</h2><p id="uPos">-</p></div>
     </div>
     <a href="leave-form.html" class="btn-primary">📝 ยื่นใบลาออนไลน์</a>
     
-    <div class="card" style="background:transparent; padding:0 16px; box-shadow:none;">
-      <div class="card-title">👥 ทีมที่ลาวันนี้</div><div id="teamList"></div>
-    </div>
-    <div class="card" style="background:transparent; padding:0 16px; box-shadow:none;">
-      <div class="card-title">📊 สรุปสิทธิวันลา</div><div id="leaveGrid"></div>
-    </div>
+    <div class="section-title">👥 ทีมที่ลาวันนี้</div>
+    <div class="card-container" id="teamList"></div>
+    
+    <div class="section-title">📊 สรุปสิทธิวันลา</div>
+    <div class="card-container" id="leaveGrid"></div>
   </div>
 
-  <div id="pg-history" class="hide"><div class="card" style="background:transparent; padding:0 16px; box-shadow:none;"><div class="card-title">📜 ประวัติการลา</div><div id="historyList"></div></div></div>
-  <div id="pg-approval" class="hide"><div class="card" style="background:transparent; padding:0 16px; box-shadow:none;"><div class="card-title">📝 รออนุมัติ</div><div id="approvalList"></div></div></div>
-  <div id="pg-cancel" class="hide"><div class="card" style="background:transparent; padding:0 16px; box-shadow:none;"><div class="card-title" style="color:#ef4444;">⛔ บังคับยกเลิก (Admin)</div><div id="cancelList"></div></div></div>
+  <div id="pg-history" class="hide">
+    <div class="section-title" style="margin-top:20px;">📜 ประวัติการลาของฉัน</div>
+    <div class="card-container" id="historyList"></div>
+  </div>
+
+  <div id="pg-approval" class="hide">
+    <div class="section-title" style="margin-top:20px;">📝 รายการรออนุมัติ</div>
+    <div class="card-container" id="approvalList"></div>
+  </div>
+
+  <div id="pg-cancel" class="hide">
+    <div class="section-title" style="margin-top:20px; color:#ef4444;">⛔ บังคับยกเลิก (แอดมิน)</div>
+    <div class="card-container" id="cancelList"></div>
+  </div>
 
   <div class="bottom-nav">
     <div class="nav-item active" id="nav-home" onclick="tab('home')"><span class="nav-icon">🏠</span>หน้าหลัก</div>
@@ -73,38 +99,25 @@
 </div>
 
 <script>
-  // 🌟 แก้ไขบั๊กการตั้งชื่อตัวแปรที่ซ้ำกัน
   const db = window.supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
   let user = null;
 
   window.onload = async () => {
     try {
       const { data: { session } } = await db.auth.getSession();
-      
       if (session) { 
         const { data, error } = await db.from('employees').select('*').eq('email', session.user.email).maybeSingle();
-        if (error || !data) throw new Error("ไม่พบข้อมูลแอดมิน กรุณาติดต่อผู้ดูแลระบบ");
-        user = data; 
-        initApp();
+        if (error || !data) throw new Error("ไม่พบข้อมูลแอดมิน");
+        user = data; initApp();
       } else { 
         await liff.init({ liffId: AppConfig.LIFF_ID });
         if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
-        
         const profile = await liff.getProfile();
-        
         const { data, error } = await db.from('employees').select('*').eq('line_user_id', profile.userId).maybeSingle();
-        
-        if (error || !data || data.status !== 'active') {
-          window.location.replace('register.html');
-        } else { 
-          user = data; 
-          initApp(); 
-        }
+        if (error || !data || data.status !== 'active') window.location.replace('register.html');
+        else { user = data; initApp(); }
       }
-    } catch (err) {
-      document.getElementById('loading').classList.add('hide');
-      alert("เกิดข้อผิดพลาดในการโหลดข้อมูล: " + err.message);
-    }
+    } catch (err) { document.getElementById('loading').classList.add('hide'); alert("เกิดข้อผิดพลาด: " + err.message); }
   };
 
   function initApp() {
@@ -116,16 +129,12 @@
     if (user.is_hr || user.can_view_report) document.getElementById('nav-report').classList.remove('hide');
     if (user.is_hr || user.is_admin) document.getElementById('nav-cancel').classList.remove('hide');
     if (user.is_admin) document.getElementById('nav-admin').classList.remove('hide');
-
     loadDashboard();
   }
 
   function tab(name) {
-    ['home', 'history', 'approval', 'cancel'].forEach(t => {
-      document.getElementById('pg-'+t).classList.add('hide'); document.getElementById('nav-'+t).classList.remove('active');
-    });
+    ['home', 'history', 'approval', 'cancel'].forEach(t => { document.getElementById('pg-'+t).classList.add('hide'); document.getElementById('nav-'+t).classList.remove('active'); });
     document.getElementById('pg-'+name).classList.remove('hide'); document.getElementById('nav-'+name).classList.add('active');
-    
     if (name === 'history') loadHistory();
     if (name === 'approval') loadApprovals();
     if (name === 'cancel') loadCancel();
@@ -135,32 +144,24 @@
     const y = new Date().getFullYear();
     const startFY = `${y-1}-12-01`; const endFY = `${y}-11-30`;
 
-    const { data: myLeaves } = await db.from('leave_requests').select('*')
-      .eq('line_user_id', user.line_user_id).in('status', ['approved', 'pending_manager', 'pending_supervisor'])
-      .gte('start_date', startFY).lte('start_date', endFY);
+    const { data: myLeaves } = await db.from('leave_requests').select('*').eq('line_user_id', user.line_user_id).in('status', ['approved', 'pending_manager', 'pending_supervisor']).gte('start_date', startFY).lte('start_date', endFY);
 
-    let html = '<div class="dashboard-stats">';
+    let html = '';
     AppConfig.LEAVE_TYPES.forEach(lt => {
       const used = myLeaves.filter(l => l.leave_type === lt.name && l.status === 'approved').reduce((sum, l) => sum + Number(l.duration), 0);
-      
       if (typeof lt.quota === 'number') {
         const remain = Math.max(0, lt.quota - used); const pct = Math.min(100, (used / lt.quota) * 100);
-        html += `<div class="lv-card"><div class="lv-header">${lt.emoji} ${lt.name}</div><div class="lv-details"><div>ทั้งหมด<br><b>${lt.quota}</b></div><div>ใช้ไป<br><span class="val-used">${used}</span></div><div>คงเหลือ<br><span class="val-remain">${remain}</span></div></div><div class="lv-progress-bg"><div class="lv-progress-fill" style="width:${pct}%"></div></div></div>`;
+        html += `<div class="stat-card"><div class="stat-header"><span>${lt.emoji} ${lt.name}</span></div><div class="stat-grid"><div>ทั้งหมด<br><b>${lt.quota}</b></div><div>ใช้ไป<br><span class="val-used">${used}</span></div><div>คงเหลือ<br><span class="val-remain">${remain}</span></div></div><div class="progress-bg"><div class="progress-fill" style="width:${pct}%"></div></div></div>`;
       }
     });
-    document.getElementById('leaveGrid').innerHTML = html + '</div>';
+    document.getElementById('leaveGrid').innerHTML = html;
 
     const today = new Date().toISOString().split('T')[0];
-    const { data: team } = await db.from('leave_requests').select('name, end_date')
-      .eq('department', user.department).eq('status', 'approved')
-      .lte('start_date', today).gte('end_date', today);
+    const { data: team } = await db.from('leave_requests').select('name, end_date').eq('department', user.department).eq('status', 'approved').lte('start_date', today).gte('end_date', today);
     
     let tHtml = '';
-    if(team && team.length > 0) {
-      team.forEach(t => tHtml += `<div class="history-item" style="border-left:4px solid #f59e0b;"><b>👤 ${t.name}</b><br><small>ถึงวันที่: ${t.end_date}</small></div>`);
-    } else {
-      tHtml = `<div class="history-item" style="text-align:center; color:#888;">✅ ทีมมาครบทุกคน</div>`;
-    }
+    if(team && team.length > 0) team.forEach(t => tHtml += `<div class="list-card" style="border-left:4px solid #f59e0b;"><h4>👤 ${t.name}</h4><p>ลากลับวันที่: ${t.end_date}</p></div>`);
+    else tHtml = `<div class="list-card" style="text-align:center; color:#94a3b8; font-weight:600;">✅ วันนี้พนักงานมาครบทุกคน</div>`;
     document.getElementById('teamList').innerHTML = tHtml;
   }
 
@@ -168,9 +169,10 @@
     const { data } = await db.from('leave_requests').select('*').eq('line_user_id', user.line_user_id).order('created_at', { ascending: false });
     let html = '';
     data.forEach(r => {
-      html += `<div class="history-item"><b>${r.leave_type} (${r.duration} วัน)</b><br>📅 ${r.start_date} - ${r.end_date}<br><span style="color:#F59E0B">สถานะ: ${r.status}</span></div>`;
+      let stColor = r.status.includes('approved') ? '#10b981' : (r.status.includes('pending') ? '#f59e0b' : '#ef4444');
+      html += `<div class="list-card"><h4>${r.leave_type} (${r.duration} วัน)</h4><p>📅 ${r.start_date} - ${r.end_date}</p><div class="status-badge" style="color:${stColor}; background:${stColor}20;">${r.status}</div></div>`;
     });
-    document.getElementById('historyList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีประวัติการลา</div>';
+    document.getElementById('historyList').innerHTML = html || '<div class="list-card" style="text-align:center;">ไม่มีประวัติการลา</div>';
   }
 
   async function loadApprovals() {
@@ -181,44 +183,38 @@
     const { data } = await query.order('created_at', { ascending: false });
     let html = '';
     data.forEach(r => {
-      html += `<div class="history-item"><b>👤 ${r.name}</b><br>${r.leave_type} (${r.duration} วัน)<br>📅 ${r.start_date} ถึง ${r.end_date}
-      <div style="display:flex; gap:10px; margin-top:10px;">
-        <button class="btn-action" style="background:#10B981; color:#fff;" onclick="actionLeave('${r.request_id}', 'approved', '${r.line_user_id}')">✅ อนุมัติ</button>
-        <button class="btn-action" style="background:#EF4444; color:#fff;" onclick="actionLeave('${r.request_id}', 'rejected', '${r.line_user_id}')">❌ ปฏิเสธ</button>
-      </div></div>`;
+      html += `<div class="list-card"><h4>👤 ${r.name}</h4><p>${r.leave_type} (${r.duration} วัน)<br>📅 ${r.start_date} ถึง ${r.end_date}</p>
+      <div class="btn-action-group"><button class="btn-action btn-approve" onclick="actionLeave('${r.request_id}', 'approved', '${r.line_user_id}')">✅ อนุมัติ</button><button class="btn-action btn-reject" onclick="actionLeave('${r.request_id}', 'rejected', '${r.line_user_id}')">❌ ปฏิเสธ</button></div></div>`;
     });
-    document.getElementById('approvalList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีรายการที่ต้องอนุมัติ</div>';
+    document.getElementById('approvalList').innerHTML = html || '<div class="list-card" style="text-align:center;">ไม่มีรายการที่ต้องพิจารณา</div>';
   }
 
   async function loadCancel() {
     const { data } = await db.from('leave_requests').select('*').in('status', ['pending_supervisor', 'pending_manager']).order('created_at', { ascending: false });
     let html = '';
     data.forEach(r => {
-      html += `<div class="history-item"><b>👤 ${r.name}</b><br>${r.leave_type} (${r.duration} วัน)<br>
-      <button class="btn-action" style="background:#fef2f2; color:#ef4444; border:1px solid #fca5a5;" onclick="actionLeave('${r.request_id}', 'cancelled', '${r.line_user_id}')">⛔ บังคับยกเลิก</button></div>`;
+      html += `<div class="list-card"><h4>👤 ${r.name}</h4><p>${r.leave_type} (${r.duration} วัน)<br>📅 ${r.start_date} ถึง ${r.end_date}</p>
+      <button class="btn-action btn-reject" style="width:100%; margin-top:10px;" onclick="actionLeave('${r.request_id}', 'cancelled', '${r.line_user_id}')">⛔ บังคับยกเลิก</button></div>`;
     });
-    document.getElementById('cancelList').innerHTML = html || '<div class="history-item" style="text-align:center;">ไม่มีรายการที่สามารถยกเลิกได้</div>';
+    document.getElementById('cancelList').innerHTML = html || '<div class="list-card" style="text-align:center;">ไม่มีรายการที่สามารถยกเลิกได้</div>';
   }
 
   async function actionLeave(reqId, decision, targetUid) {
     if(!confirm('ยืนยันการทำรายการ?')) return;
     document.getElementById('loadingText').innerText = "กำลังบันทึก...";
     document.getElementById('loading').classList.remove('hide');
-    
     let nextStatus = decision;
     if (decision === 'approved' && !user.position.includes('ผู้จัดการ')) nextStatus = 'pending_manager';
-
     await db.from('leave_requests').update({ status: nextStatus }).eq('request_id', reqId);
     
-    fetch(AppConfig.GAS_MAILMAN_URL, {
-      method: "POST", body: JSON.stringify({
-        apiKey: AppConfig.GAS_SECRET,
-        action: decision === 'cancelled' ? 'notify_cancel' : 'notify_result',
-        to: [targetUid],
-        data: { reqId: reqId, status: nextStatus, approverName: user.name, duration: 0 }
-      })
-    });
-
+    try {
+      if (AppConfig.GAS_MAILMAN_URL) {
+        await fetch(AppConfig.GAS_MAILMAN_URL, {
+          method: "POST", mode: 'no-cors',
+          body: JSON.stringify({ apiKey: AppConfig.GAS_SECRET, action: decision === 'cancelled' ? 'notify_cancel' : 'notify_result', to: [targetUid], data: { reqId: reqId, status: nextStatus, approverName: user.name, duration: 0 }})
+        });
+      }
+    } catch(e) {}
     document.getElementById('loading').classList.add('hide'); alert('บันทึกสำเร็จ'); tab(decision === 'cancelled' ? 'cancel' : 'approval');
   }
 </script>
