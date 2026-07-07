@@ -1,27 +1,31 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>ลงทะเบียนบุคลากร</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
-  body { font-family:'Sarabun',sans-serif; background:#f4f7fb; padding:20px; display:flex; justify-content:center; align-items:center; min-height:90vh; margin:0;}
-  .card { background:#fff; padding:30px; border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,0.05); width:100%; max-width:400px; text-align:center;}
-  label { display:block; text-align:left; font-weight:bold; color:#1a3a6b; margin-top:15px; margin-bottom:5px; font-size:14px;}
-  input, select { width:100%; padding:12px; border:1px solid #ccc; border-radius:8px; font-family:'Sarabun'; outline:none; font-size:15px;}
-  .btn { width:100%; background:#1a3a6b; color:#fff; padding:15px; border:none; border-radius:10px; font-weight:bold; cursor:pointer; margin-top:25px; font-size:16px;}
-  .avatar { width:80px; height:80px; border-radius:50%; margin:0 auto 10px; display:block; object-fit:cover; border:3px solid #e0e7ff;}
-  .hide { display:none; }
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap');
+  :root { --primary:#1e3a8a; --bg:#f1f5f9; --card:#ffffff; --text:#334155; --border:#cbd5e1; }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Sarabun',sans-serif; }
+  body { background:var(--bg); color:var(--text); display:flex; justify-content:center; align-items:center; min-height:100vh; padding:20px;}
+  .card { background:var(--card); padding:35px; border-radius:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); width:100%; max-width:400px; text-align:center;}
+  label { display:block; text-align:left; font-weight:600; color:#475569; margin:15px 0 8px; font-size:14px;}
+  input, select { width:100%; padding:14px; border:1px solid var(--border); border-radius:12px; font-size:15px; outline:none; transition:0.3s; background:#fff;}
+  input:focus, select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(30,58,138,0.1); }
+  .btn { width:100%; background:var(--primary); color:#fff; padding:16px; border:none; border-radius:12px; font-weight:700; cursor:pointer; margin-top:25px; font-size:16px; box-shadow:0 4px 12px rgba(30,58,138,0.2); transition:0.2s;}
+  .btn:hover { opacity:0.9; transform:translateY(-2px); }
+  .avatar { width:90px; height:90px; border-radius:50%; margin:0 auto 15px; display:block; object-fit:cover; border:4px solid #e0e7ff; background:#f8fafc;}
+  .hide { display:none !important; }
 </style>
 </head>
 <body>
 <div class="card" id="regForm">
   <img id="uImg" src="https://via.placeholder.com/150" class="avatar">
-  <h2 style="color:#1a3a6b; margin-bottom:5px;">ลงทะเบียนพนักงาน</h2>
-  <p style="color:#64748b; font-size:13px; margin-bottom:20px;">กรุณากรอกข้อมูลเพื่อขอเข้าใช้งานระบบ</p>
+  <h2 style="color:var(--primary); margin-bottom:5px;">ลงทะเบียนบุคลากร</h2>
+  <p style="color:#64748b; font-size:14px; margin-bottom:20px;">กรุณากรอกข้อมูลเพื่อขอเข้าใช้งานระบบ</p>
   
   <label>ชื่อ - นามสกุล</label>
   <input type="text" id="name" placeholder="นาย/นางสาว..." required>
@@ -32,16 +36,16 @@
   <label>ตำแหน่ง</label>
   <select id="position"></select>
   
-  <label>อีเมล (ถ้ามี / ใช้สำหรับเข้าเว็บ Admin)</label>
+  <label>อีเมล (ใช้สำหรับเข้าเว็บ Admin)</label>
   <input type="email" id="email" placeholder="example@coopkku.com">
   
   <button class="btn" onclick="registerUser()" id="btnReg">ยืนยันการลงทะเบียน</button>
 </div>
 
 <div class="card hide" id="waitForm">
-  <div style="font-size:50px; margin-bottom:10px;">⏳</div>
-  <h2 style="color:#f59e0b;">รอการอนุมัติ</h2>
-  <p style="color:#64748b; font-size:15px; margin-top:10px;">คุณได้ลงทะเบียนแล้ว กรุณารอแอดมินอนุมัติบัญชีในระบบหลังบ้านก่อนเข้าใช้งานครับ</p>
+  <div style="font-size:60px; margin-bottom:15px;">⏳</div>
+  <h2 style="color:#f59e0b; margin-bottom:10px;">รอการอนุมัติบัญชี</h2>
+  <p style="color:#64748b; font-size:15px; line-height:1.6;">คุณได้ลงทะเบียนสำเร็จแล้ว<br>กรุณารอแอดมินอนุมัติในระบบหลังบ้าน<br>ก่อนเข้าใช้งานระบบครับ</p>
 </div>
 
 <script>
@@ -49,10 +53,8 @@
   let lineUserId = '';
 
   window.onload = async () => {
-    const deptHtml = AppConfig.DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('');
-    const posHtml = AppConfig.POSITIONS.map(p => `<option value="${p}">${p}</option>`).join('');
-    document.getElementById('department').innerHTML = deptHtml;
-    document.getElementById('position').innerHTML = posHtml;
+    document.getElementById('department').innerHTML = AppConfig.DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('');
+    document.getElementById('position').innerHTML = AppConfig.POSITIONS.map(p => `<option value="${p}">${p}</option>`).join('');
 
     await liff.init({ liffId: AppConfig.LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -62,39 +64,25 @@
     document.getElementById('uImg').src = profile.pictureUrl || 'https://via.placeholder.com/150';
 
     const { data } = await db.from('employees').select('status').eq('line_user_id', lineUserId).maybeSingle();
-    
     if (data) {
-      if (data.status === 'pending') {
-        document.getElementById('regForm').classList.add('hide');
-        document.getElementById('waitForm').classList.remove('hide');
-      } else if (data.status === 'active') {
-        window.location.replace('index.html');
-      }
+      if (data.status === 'pending') { document.getElementById('regForm').classList.add('hide'); document.getElementById('waitForm').classList.remove('hide'); } 
+      else if (data.status === 'active') { window.location.replace('index.html'); }
     }
   };
 
   async function registerUser() {
     const name = document.getElementById('name').value.trim();
     if (!name) return alert('กรุณากรอกชื่อ-สกุล');
-    
-    document.getElementById('btnReg').innerText = "กำลังบันทึกข้อมูล...";
+    const btn = document.getElementById('btnReg');
+    btn.innerText = "กำลังบันทึกข้อมูล..."; btn.disabled = true;
 
     const { error } = await db.from('employees').insert([{
-      line_user_id: lineUserId,
-      name: name,
-      department: document.getElementById('department').value,
-      position: document.getElementById('position').value,
-      email: document.getElementById('email').value || null,
-      status: 'pending' 
+      line_user_id: lineUserId, name: name, department: document.getElementById('department').value,
+      position: document.getElementById('position').value, email: document.getElementById('email').value || null, status: 'pending' 
     }]);
 
-    if (error) {
-      alert("❌ ไม่สามารถลงทะเบียนได้: " + error.message);
-      document.getElementById('btnReg').innerText = "ยืนยันการลงทะเบียน";
-    } else {
-      document.getElementById('regForm').classList.add('hide');
-      document.getElementById('waitForm').classList.remove('hide');
-    }
+    if (error) { alert("❌ ไม่สามารถลงทะเบียนได้: " + error.message); btn.innerText = "ยืนยันการลงทะเบียน"; btn.disabled = false; } 
+    else { document.getElementById('regForm').classList.add('hide'); document.getElementById('waitForm').classList.remove('hide'); }
   }
 </script>
 </body>
