@@ -1,153 +1,75 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>รายงานสรุปวันลา — COOPKKU</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>รายงาน — COOPKKU</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- ไลบรารีสำหรับ Export -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="config.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap');
-  :root { --primary:#1e3a8a; --accent:#d97706; --bg:#f8fafc; --card:#ffffff; --text:#334155; --border:#e2e8f0; --success:#10b981; }
-  * { margin:0; padding:0; box-sizing:border-box; font-family:'Sarabun',sans-serif; }
-  body { background:var(--bg); color:var(--text); padding:20px; }
-  .container { max-width:1200px; margin:0 auto; }
-  .header { display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; background:var(--primary); color:#fff; padding:20px; border-radius:16px; margin-bottom:20px; box-shadow:0 4px 15px rgba(30,58,138,0.1); }
-  .header h2 { margin:0; font-size:20px; }
-  .actions { display:flex; gap:10px; flex-wrap:wrap; }
-  .btn { padding:10px 16px; border:none; border-radius:8px; cursor:pointer; color:#fff; font-weight:600; font-size:14px; text-decoration:none; display:inline-flex; align-items:center; gap:5px; transition:0.2s;}
-  .btn:hover { opacity:0.9; transform:translateY(-1px); }
-  .btn-back { background:var(--accent); } .btn-excel { background:#10b981; } .btn-img { background:#3b82f6; } .btn-pdf { background:#ef4444; }
-  .card { background:var(--card); padding:24px; border-radius:16px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); overflow-x:auto; }
-  .filter-bar { margin-bottom:20px; display:flex; align-items:center; gap:12px; }
-  select { padding:10px 16px; border-radius:8px; border:1px solid var(--border); font-size:15px; outline:none; background:#fff; cursor:pointer; }
-  .table-container { width:100%; overflow-x:auto; border-radius:8px; border:1px solid var(--border); }
-  table { width:100%; border-collapse:collapse; min-width:800px; background:#fff;}
-  th, td { padding:14px 16px; border-bottom:1px solid var(--border); text-align:center; font-size:14px; }
-  th { background:#f1f5f9; color:var(--primary); font-weight:700; white-space:nowrap; }
-  td.text-left { text-align:left; }
-  tr:last-child td { border-bottom:none; }
-  .val-used { color:#ef4444; font-weight:700; }
-  .val-empty { color:#94a3b8; }
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+  body { font-family:'Sarabun',sans-serif; background:#f4f7fb; padding:20px; }
+  .header { display:flex; justify-content:space-between; align-items:center; background:#1e3a8a; color:#fff; padding:20px; border-radius:12px; margin-bottom:20px; }
+  .btn { padding:10px 16px; border:none; border-radius:8px; cursor:pointer; color:#fff; font-weight:600; text-decoration:none; margin-left:5px;}
+  table { width:100%; border-collapse:collapse; background:#fff; margin-top:20px; border-radius:8px;} 
+  th, td { padding:14px; border:1px solid #e2e8f0; text-align:center; font-size:14px; }
+  th { background:#f1f5f9; color:#1e3a8a; }
+  .val-used { color:#ef4444; font-weight:bold; }
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <h2>📈 รายงานสรุปการใช้วันลาบุคลากร</h2>
-    <div class="actions">
-      <a href="index.html" class="btn btn-back">🏠 กลับหน้าหลัก</a>
-      <button class="btn btn-excel" onclick="exportExcel()">📊 Excel</button>
-      <button class="btn btn-img" onclick="exportImage()">🖼️ รูปภาพ</button>
-      <button class="btn btn-pdf" onclick="exportPDF()">📄 PDF</button>
-    </div>
+<div class="header">
+  <h2 style="margin:0;">📈 รายงานสรุปการใช้วันลาบุคลากร</h2>
+  <div>
+    <a href="index.html" class="btn" style="background:#f59e0b;">🏠 กลับ</a>
+    <button class="btn" style="background:#10b981;" onclick="exportExcel()">📊 Excel</button>
+    <button class="btn" style="background:#3b82f6;" onclick="exportImage()">🖼️ รูปภาพ</button>
+    <button class="btn" style="background:#ef4444;" onclick="exportPDF()">📄 PDF</button>
   </div>
+</div>
 
-  <div class="card">
-    <div class="filter-bar">
-      <b>เลือกปีบัญชี:</b>
-      <select id="fySelect" onchange="loadReport()"></select>
-    </div>
-    
-    <div class="table-container" id="reportWrap">
-      <table id="reportTable">
-        <thead id="tableHeader"><tr><th>กำลังโหลดข้อมูล...</th></tr></thead>
-        <tbody id="tableBody"></tbody>
-      </table>
-    </div>
+<div style="background:#fff; padding:20px; border-radius:12px;">
+  <b>เลือกปีบัญชี:</b> <select id="fySelect" onchange="loadReport()" style="padding:10px; border-radius:8px;"></select>
+  <div id="reportWrap" style="overflow-x:auto;">
+    <table id="reportTable"><thead id="tHead"></thead><tbody id="tBody"></tbody></table>
   </div>
 </div>
 
 <script>
   const db = window.supabase.createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
-  
   window.onload = async () => {
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) return window.location.replace('login.html');
-    
-    const { data: emp } = await db.from('employees').select('*').eq('email', session.user.email).maybeSingle();
-    if (!emp || (!emp.is_admin && !emp.is_hr && !emp.can_view_report)) { 
-      alert('⛔ คุณไม่มีสิทธิ์เข้าถึงหน้ารายงานนี้'); window.location.replace('index.html'); return; 
-    }
-    
-    setupFY(); loadReport();
+    const y = new Date().getFullYear();
+    document.getElementById('fySelect').innerHTML = [0,1,2].map(i => `<option value="${y-i}">ปีบัญชี ${y-i}</option>`).join('');
+    loadReport();
   };
 
-  function setupFY() {
-    const y = new Date().getFullYear();
-    let html = '';
-    for(let i = 0; i < 3; i++) html += `<option value="${y-i}">ปีบัญชี ${y-i} (ธ.ค. ${y-i-1} - พ.ย. ${y-i})</option>`;
-    document.getElementById('fySelect').innerHTML = html;
-  }
-
   async function loadReport() {
-    document.getElementById('tableHeader').innerHTML = `<tr><td style="padding:30px;">⏳ กำลังโหลด...</td></tr>`;
-    document.getElementById('tableBody').innerHTML = '';
-    
     const y = parseInt(document.getElementById('fySelect').value);
-    const startStr = `${y-1}-12-01`; const endStr = `${y}-11-30`;
+    const { data: emps } = await db.from('employees').select('*').eq('status', 'active').order('department');
+    const { data: leaves } = await db.from('leave_requests').select('*').eq('status', 'approved').gte('start_date', `${y-1}-12-01`).lte('start_date', `${y}-11-30`);
 
-    const { data: emps, error: errEmp } = await db.from('employees').select('*').eq('status', 'active').order('department');
-    const { data: leaves, error: errLeave } = await db.from('leave_requests').select('*')
-      .eq('status', 'approved').gte('start_date', startStr).lte('start_date', endStr);
+    const activeTypes = AppConfig.LEAVE_TYPES.filter(lt => (leaves||[]).some(l => l.leave_type === lt.name));
+    
+    let th = `<tr><th>ลำดับ</th><th style="text-align:left;">ชื่อ-สกุล</th><th>แผนก</th>` + activeTypes.map(lt => `<th>${lt.name}</th>`).join('') + `</tr>`;
+    document.getElementById('tHead').innerHTML = th;
 
-    if(errEmp || errLeave) return alert("เกิดข้อผิดพลาดในการโหลดข้อมูล");
-
-    // 🌟 กรองเฉพาะประเภทการลาที่มีคนใช้จริงๆ เท่านั้น
-    const activeTypes = AppConfig.LEAVE_TYPES.filter(lt => {
-      return (leaves || []).some(l => l.leave_type === lt.name);
-    });
-
-    let th = `<tr><th>ลำดับ</th><th class="text-left">ชื่อ - นามสกุล</th><th class="text-left">ฝ่าย / แผนก</th>`;
-    activeTypes.forEach(lt => th += `<th>${lt.name}</th>`);
-    th += `</tr>`;
-    document.getElementById('tableHeader').innerHTML = th;
-
-    let tbody = '';
-    if(emps.length === 0) tbody = `<tr><td colspan="${3 + activeTypes.length}">ไม่พบข้อมูลพนักงาน</td></tr>`;
-    else {
-      emps.forEach((e, index) => {
-        tbody += `<tr><td>${index + 1}</td><td class="text-left"><b>${e.name}</b></td><td class="text-left">${e.department}</td>`;
-        activeTypes.forEach(lt => {
-          const used = (leaves || []).filter(l => l.line_user_id === e.line_user_id && l.leave_type === lt.name).reduce((sum, l) => sum + Number(l.duration), 0);
-          tbody += `<td class="${used > 0 ? 'val-used' : 'val-empty'}">${used > 0 ? used : '-'}</td>`;
-        });
-        tbody += `</tr>`;
+    let tb = '';
+    (emps||[]).forEach((e, i) => {
+      tb += `<tr><td>${i+1}</td><td style="text-align:left;">${e.name}</td><td>${e.department}</td>`;
+      activeTypes.forEach(lt => {
+        const used = (leaves||[]).filter(l => l.line_user_id === e.line_user_id && l.leave_type === lt.name).reduce((sum, l) => sum + Number(l.duration), 0);
+        tb += `<td class="${used > 0 ? 'val-used' : ''}">${used > 0 ? used : '-'}</td>`;
       });
-    }
-    document.getElementById('tableBody').innerHTML = tbody;
-  }
-
-  // Export Excel
-  function exportExcel() {
-    const table = document.getElementById("reportTable");
-    const wb = XLSX.utils.table_to_book(table, {sheet: "สรุปวันลา"});
-    XLSX.writeFile(wb, `รายงานวันลา_ปี_${document.getElementById('fySelect').value}.xlsx`);
-  }
-
-  // Export Image
-  function exportImage() {
-    html2canvas(document.getElementById('reportWrap')).then(canvas => {
-      let link = document.createElement('a'); link.download = `รายงานวันลา_${document.getElementById('fySelect').value}.png`;
-      link.href = canvas.toDataURL(); link.click();
+      tb += `</tr>`;
     });
+    document.getElementById('tBody').innerHTML = tb;
   }
 
-  // Export PDF (แปลงเป็นรูปก่อนใส่ PDF เพื่อแก้ปัญหาฟอนต์ภาษาไทย)
-  function exportPDF() {
-    html2canvas(document.getElementById('reportWrap')).then(canvas => {
-      const { jsPDF } = window.jspdf;
-      let pdf = new jsPDF('l', 'pt', 'a4'); // แนวนอน
-      let imgData = canvas.toDataURL('image/png');
-      let pdfWidth = pdf.internal.pageSize.getWidth() - 40;
-      let pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 20, 20, pdfWidth, pdfHeight);
-      pdf.save(`รายงานวันลา_${document.getElementById('fySelect').value}.pdf`);
-    });
-  }
+  function exportExcel() { XLSX.writeFile(XLSX.utils.table_to_book(document.getElementById("reportTable")), `รายงานวันลา_${document.getElementById('fySelect').value}.xlsx`); }
+  function exportImage() { html2canvas(document.getElementById('reportWrap')).then(canvas => { let a = document.createElement('a'); a.download = 'report.png'; a.href = canvas.toDataURL(); a.click(); }); }
+  function exportPDF() { html2canvas(document.getElementById('reportWrap')).then(c => { const pdf = new window.jspdf.jsPDF('l', 'pt', 'a4'); pdf.addImage(c.toDataURL('image/png'), 'PNG', 20, 20, pdf.internal.pageSize.getWidth()-40, (c.height*(pdf.internal.pageSize.getWidth()-40))/c.width); pdf.save('report.pdf'); }); }
 </script>
 </body>
 </html>
